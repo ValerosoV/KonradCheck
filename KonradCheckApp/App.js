@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from './screens/Login';
+import Reuniones from './screens/Reuniones';
 
 const Stack = createNativeStackNavigator();
 
@@ -32,6 +33,11 @@ export default function App() {
           name="Login"
           component={Login}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Reuniones"
+          component={Reuniones}
+          options={{ title: 'Reuniones' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

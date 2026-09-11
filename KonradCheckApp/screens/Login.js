@@ -6,8 +6,19 @@ import {
     Pressable,
     StyleSheet,
 } from 'react-native';
-//aaa
-export default function Login() {
+
+// Futuro servicio de autenticacion:
+// import { validarCredenciales } from '../services/authService';
+
+export default function Login({ navigation }) {
+
+    const handleLogin = () => {
+        // Futuro flujo con BD:
+        // const usuarioValido = await validarCredenciales(correo, contrasena);
+        // if (!usuarioValido) return;
+
+        navigation.navigate('Reuniones');
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -42,7 +53,7 @@ export default function Login() {
                         />
                     </View>
 
-                    <Pressable style={styles.button}>
+                    <Pressable style={styles.button} onPress={handleLogin}>
                         <Text style={styles.buttonText}>Iniciar sesión</Text>
                     </Pressable>
                 </View>
