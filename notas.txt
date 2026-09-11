@@ -1,0 +1,15 @@
+node --version
+v22.14.0 
+
+npm --version
+npm install npm -g
+11.19.1
+
+npx expo --version
+57.0.24
+
+npx create-expo-app@latest KonradCheckApp --template blank
+
+cd KonradCheckApp 
+
+npm start 
