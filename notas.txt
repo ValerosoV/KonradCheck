@@ -1,3 +1,5 @@
+--Acad los cosos de versiones de los gestores de paquetes
+
 node --version
 v22.14.0 
 
@@ -8,8 +10,13 @@ npm install npm -g
 npx expo --version
 57.0.24
 
+--Aca instale la plantilla
+
 npx create-expo-app@latest KonradCheckApp --template blank
 
+--Estos pa entrar en la carpeta correcta de la consola, y luego iniciar
 cd KonradCheckApp 
-
 npm start 
+
+--Esto pa el React leido desde la web Web
+npx expo install react-dom react-native-web
