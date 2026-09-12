@@ -3,6 +3,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from './screens/noSesion/Login';
 import RecuperarContrasena from './screens/noSesion/RecuperarContrasena';
 import Reuniones from './screens/Reuniones';
+import MiQR from './screens/MiQR';
+import Historial from './screens/Historial';
+import Perfil from './screens/Perfil';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,7 +46,22 @@ export default function App() {
         <Stack.Screen
           name="Reuniones"
           component={Reuniones}
-          options={{ title: 'Reuniones' }}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="MiQR"
+          component={MiQR}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Historial"
+          component={Historial}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Perfil"
+          component={Perfil}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
