@@ -108,6 +108,53 @@ export function RefreshIcon({ color }) {
     return <View style={[styles.refresh, { borderColor: color }]} />;
 }
 
+export function BellIcon({ color }) {
+    return (
+        <View style={styles.bellWrap}>
+            <View style={[styles.bellDome, { borderColor: color }]} />
+            <View style={[styles.bellBase, { backgroundColor: color }]} />
+            <View style={[styles.bellClapper, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+export function KeyIcon({ color }) {
+    return (
+        <View style={styles.keyWrap}>
+            <View style={[styles.keyRing, { borderColor: color }]} />
+            <View style={[styles.keyShaft, { backgroundColor: color }]} />
+            <View style={[styles.keyTooth, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+export function InfoIcon({ color }) {
+    return (
+        <View style={[styles.circleIcon, { borderColor: color }]}>
+            <View style={[styles.circleIconDot, { backgroundColor: color }]} />
+            <View style={[styles.circleIconBar, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+export function QuestionIcon({ color }) {
+    return (
+        <View style={[styles.circleIcon, { borderColor: color }]}>
+            <View style={[styles.questionHook, { borderColor: color }]} />
+            <View style={[styles.circleIconDot, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+export function ChevronIcon({ color }) {
+    return (
+        <View style={styles.chevronWrap}>
+            <View style={[styles.chevronArm, { backgroundColor: color }]} />
+            <View style={[styles.chevronArm, styles.chevronArmBottom, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     homeWrap: {
         alignItems: 'center',
@@ -191,5 +238,100 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         height: 14,
         width: 14,
+    },
+    bellWrap: {
+        alignItems: 'center',
+        height: 22,
+        justifyContent: 'flex-end',
+        width: 22,
+    },
+    bellDome: {
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+        borderWidth: 2,
+        borderBottomWidth: 0,
+        height: 12,
+        width: 14,
+    },
+    bellBase: {
+        borderRadius: 1,
+        height: 2,
+        marginTop: 1,
+        width: 18,
+    },
+    bellClapper: {
+        borderRadius: 2,
+        height: 3,
+        marginTop: 2,
+        width: 3,
+    },
+    keyWrap: {
+        alignItems: 'center',
+        flexDirection: 'row',
+        height: 22,
+        justifyContent: 'center',
+        transform: [{ rotate: '-45deg' }],
+        width: 22,
+    },
+    keyRing: {
+        borderRadius: 5,
+        borderWidth: 2,
+        height: 10,
+        width: 10,
+    },
+    keyShaft: {
+        height: 2,
+        marginLeft: -1,
+        width: 8,
+    },
+    keyTooth: {
+        height: 5,
+        marginLeft: -2,
+        width: 2,
+    },
+    circleIcon: {
+        alignItems: 'center',
+        borderRadius: 11,
+        borderWidth: 2,
+        height: 22,
+        justifyContent: 'center',
+        width: 22,
+    },
+    circleIconDot: {
+        borderRadius: 1,
+        height: 2,
+        width: 2,
+    },
+    circleIconBar: {
+        borderRadius: 1,
+        height: 6,
+        marginTop: 2,
+        width: 2,
+    },
+    questionHook: {
+        borderColor: 'transparent',
+        borderRadius: 5,
+        borderTopWidth: 2,
+        borderRightWidth: 2,
+        height: 7,
+        width: 7,
+        transform: [{ rotate: '45deg' }],
+    },
+    chevronWrap: {
+        height: 12,
+        justifyContent: 'center',
+        transform: [{ rotate: '-45deg' }],
+        width: 10,
+    },
+    chevronArm: {
+        borderRadius: 1,
+        height: 2,
+        position: 'absolute',
+        top: 0,
+        width: 8,
+    },
+    chevronArmBottom: {
+        transform: [{ rotate: '90deg' }],
+        top: 5,
     },
 });
