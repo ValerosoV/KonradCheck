@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 
 // Futuro servicio de autenticacion:
-// import { validarCredenciales } from '../services/authService';
+// import { validarCredenciales } from '../../services/authService';
 
 export default function Login({ navigation }) {
 
@@ -36,7 +36,7 @@ export default function Login({ navigation }) {
                         <Text style={styles.label}>Correo electrónico</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="tucorreo@konrad.edu.co"
+                            placeholder="tucorreo@konradlorenz.edu.co"
                             placeholderTextColor="#8A94A6"
                             keyboardType="email-address"
                             autoCapitalize="none"
@@ -55,6 +55,15 @@ export default function Login({ navigation }) {
 
                     <Pressable style={styles.button} onPress={handleLogin}>
                         <Text style={styles.buttonText}>Iniciar sesión</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={styles.recoveryButton}
+                        onPress={() => navigation.navigate('RecuperarContrasena')}
+                    >
+                        <Text style={styles.recoveryText}>
+                            ¿Olvidaste tu contraseña?
+                        </Text>
                     </Pressable>
                 </View>
 
@@ -128,6 +137,14 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#FFFFFF',
         fontSize: 16,
+        fontWeight: '700',
+    },
+    recoveryButton: {
+        alignItems: 'center',
+    },
+    recoveryText: {
+        color: '#176B87',
+        fontSize: 14,
         fontWeight: '700',
     },
     footer: {

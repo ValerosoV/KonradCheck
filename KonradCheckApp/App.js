@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Login from './screens/Login';
+import Login from './screens/noSesion/Login';
+import RecuperarContrasena from './screens/noSesion/RecuperarContrasena';
 import Reuniones from './screens/Reuniones';
 
 const Stack = createNativeStackNavigator();
@@ -33,6 +34,11 @@ export default function App() {
           name="Login"
           component={Login}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="RecuperarContrasena"
+          component={RecuperarContrasena}
+          options={{ title: 'Recuperar contraseña' }}
         />
         <Stack.Screen
           name="Reuniones"
