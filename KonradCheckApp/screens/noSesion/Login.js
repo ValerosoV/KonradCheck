@@ -17,7 +17,7 @@ export default function Login({ navigation }) {
         // const usuarioValido = await validarCredenciales(correo, contrasena);
         // if (!usuarioValido) return;
 
-        navigation.navigate('Reuniones');
+        navigation.navigate('ReunionesEstudiante');
     };
 
     return (
