@@ -3,6 +3,7 @@ import {
     ScrollView,
     View,
     Text,
+    Pressable,
     StyleSheet,
 } from 'react-native';
 import {
@@ -11,8 +12,9 @@ import {
     InfoIcon,
     QuestionIcon,
     ChevronIcon,
-} from './components/Icons';
-import BottomTabBar from './components/BottomTabBar';
+} from '../components/Icons';
+import BottomTabBarEstudiante from './Estudiante/BottomTabBar';
+import BottomTabBarPersonal from './Personal/BottomTabBarPersonal';
 
 // Pantalla de perfil: solo maqueta visual con datos de ejemplo.
 
@@ -48,7 +50,15 @@ const opciones = [
     },
 ];
 
-export default function Perfil({ navigation }) {
+export default function Perfil({ navigation, route }) {
+    const esPersonal = route?.params?.role === 'personal';
+    const cerrarSesion = () => {
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+        });
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
@@ -86,12 +96,16 @@ export default function Perfil({ navigation }) {
                     ))}
                 </View>
 
-                <View style={styles.logoutButton}>
+                <Pressable style={styles.logoutButton} onPress={cerrarSesion}>
                     <Text style={styles.logoutText}>Cerrar Sesión Activa</Text>
-                </View>
+                </Pressable>
             </ScrollView>
 
-            <BottomTabBar navigation={navigation} active="Perfil" />
+            {esPersonal ? (
+                <BottomTabBarPersonal navigation={navigation} active="Perfil" />
+            ) : (
+                <BottomTabBarEstudiante navigation={navigation} active="Perfil" />
+            )}
         </SafeAreaView>
     );
 }

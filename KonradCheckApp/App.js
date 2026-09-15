@@ -2,19 +2,19 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from './screens/noSesion/Login';
 import RecuperarContrasena from './screens/noSesion/RecuperarContrasena';
-import Reuniones from './screens/Reuniones';
-import MiQR from './screens/MiQR';
-import Historial from './screens/Historial';
-import Perfil from './screens/Perfil';
+import Reuniones from './screens/conSesion/Estudiante/Reuniones';
+import MiQR from './screens/conSesion/Estudiante/MiQR';
+import Historial from './screens/conSesion/Estudiante/Historial';
+import Perfil from './screens/conSesion/Perfil';
+import ReunionesPersonal from './screens/conSesion/Personal/Reuniones';
+import ProgramarReunion from './screens/conSesion/Personal/ProgramarReunion';
+import Reportes from './screens/conSesion/Personal/Reportes';
+import EscanearQR from './screens/conSesion/Personal/EscanearQR';
 
 const Stack = createNativeStackNavigator();
 
 //abajo importar las pantallas que se van a usar en el stack navigator
 
-
-/*
-import Reemplazar from './screens/Eeemplazar';
-*/
 
 /*
 
@@ -61,6 +61,26 @@ export default function App() {
         <Stack.Screen
           name="Perfil"
           component={Perfil}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ReunionesPersonal"
+          component={ReunionesPersonal}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ProgramarReunion"
+          component={ProgramarReunion}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ReporteAsistencia"
+          component={Reportes}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EscanearQR"
+          component={EscanearQR}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

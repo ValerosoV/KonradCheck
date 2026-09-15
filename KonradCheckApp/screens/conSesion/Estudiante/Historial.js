@@ -5,7 +5,7 @@ import {
     Text,
     StyleSheet,
 } from 'react-native';
-import BottomTabBar from './components/BottomTabBar';
+import BottomTabBar from './BottomTabBar';
 
 // Pantalla de historial: solo maqueta visual con datos de ejemplo.
 

@@ -4,8 +4,8 @@ import {
     Text,
     StyleSheet,
 } from 'react-native';
-import { QrGrid, RefreshIcon, bigQrMatrix } from './components/Icons';
-import BottomTabBar from './components/BottomTabBar';
+import { QrGrid, RefreshIcon, bigQrMatrix } from '../../components/Icons';
+import BottomTabBar from './BottomTabBar';
 
 // Pantalla "Mi QR": solo maqueta visual con datos de ejemplo.
 

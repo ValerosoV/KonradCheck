@@ -1,27 +1,32 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { HomeIcon, HistorialIcon, PerfilIcon } from './Icons';
+import { HomeIcon, QrIcon, PerfilIcon } from '../../components/Icons';
 
 const TABS = [
-    { route: 'Reuniones', label: 'Inicio', Icon: HomeIcon },
-    { route: 'Historial', label: 'Historial', Icon: HistorialIcon },
+    { route: 'ReunionesPersonal', label: 'Reuniones', Icon: HomeIcon },
+    { route: 'EscanearQR', label: 'Escanear QR', Icon: QrIcon },
     { route: 'Perfil', label: 'Perfil', Icon: PerfilIcon },
 ];
 
 const ACTIVE_COLOR = '#12A889';
 const INACTIVE_COLOR = '#98A2B3';
 
-export default function BottomTabBar({ navigation, active }) {
+export default function BottomTabBarPersonal({ navigation, active }) {
     return (
         <View>
             <View style={styles.tabBar}>
                 {TABS.map(({ route, label, Icon }) => {
-                    const isActive = route === active;
-                    const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
+                    const color = route === active ? ACTIVE_COLOR : INACTIVE_COLOR;
                     return (
                         <Pressable
                             key={route}
                             style={styles.tabItem}
-                            onPress={() => navigation.navigate(route)}
+                            onPress={() => {
+                                if (route === 'Perfil') {
+                                    navigation.navigate(route, { role: 'personal' });
+                                    return;
+                                }
+                                navigation.navigate(route);
+                            }}
                         >
                             <Icon color={color} />
                             <Text style={[styles.tabLabel, { color }]}>{label}</Text>
@@ -41,8 +46,8 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         flexDirection: 'row',
         justifyContent: 'space-around',
-        paddingTop: 10,
         paddingBottom: 6,
+        paddingTop: 10,
     },
     tabItem: {
         alignItems: 'center',

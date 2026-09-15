@@ -6,8 +6,8 @@ import {
     Pressable,
     StyleSheet,
 } from 'react-native';
-import { QrGrid, PinIcon, QrIcon, miniQrMatrix } from './components/Icons';
-import BottomTabBar from './components/BottomTabBar';
+import { QrGrid, PinIcon, QrIcon, miniQrMatrix } from '../../components/Icons';
+import BottomTabBar from './BottomTabBar';
 
 // Pantalla de inicio: solo maqueta visual con datos de ejemplo,
 // la navegacion entre pestanas si funciona.
