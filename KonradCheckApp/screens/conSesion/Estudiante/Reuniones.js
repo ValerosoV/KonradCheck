@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -9,8 +10,7 @@ import {
 import { QrGrid, PinIcon, QrIcon, miniQrMatrix } from '../../components/Icons';
 import BottomTabBar from './BottomTabBar';
 
-// Pantalla de inicio: solo maqueta visual con datos de ejemplo,
-// la navegacion entre pestanas si funciona.
+const LIMITE_INICIAL = 2;
 
 const usuario = {
     nombre: 'David Gómez',
@@ -40,6 +40,20 @@ const clases = [
         lugar: 'Salón 301, Edificio Central',
         estado: 'Pendiente',
     },
+    {
+        id: '4',
+        materia: 'Electiva de Humanidades',
+        horario: '14:00 - 16:00',
+        lugar: 'Salón 205, Edificio Norte',
+        estado: 'Pendiente',
+    },
+    {
+        id: '5',
+        materia: 'Bases de Datos',
+        horario: '16:00 - 18:00',
+        lugar: 'Laboratorio 2',
+        estado: 'Pendiente',
+    },
 ];
 
 function EstadoPill({ estado }) {
@@ -64,6 +78,9 @@ function EstadoPill({ estado }) {
 }
 
 export default function Reuniones({ navigation }) {
+    const [mostrarTodas, setMostrarTodas] = useState(false);
+    const clasesVisibles = mostrarTodas ? clases : clases.slice(0, LIMITE_INICIAL);
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
@@ -100,10 +117,17 @@ export default function Reuniones({ navigation }) {
 
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Clases de Hoy</Text>
-                    <Text style={styles.sectionLink}>Ver todas</Text>
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={mostrarTodas ? 'Mostrar menos clases' : 'Ver todas las clases'}
+                        onPress={() => setMostrarTodas((mostrar) => !mostrar)}
+                        hitSlop={10}
+                    >
+                        <Text style={styles.sectionLink}>{mostrarTodas ? 'Ver menos' : 'Ver todas'}</Text>
+                    </Pressable>
                 </View>
 
-                {clases.map((clase) => (
+                {clasesVisibles.map((clase) => (
                     <View key={clase.id} style={styles.classCard}>
                         <View style={styles.classHeaderRow}>
                             <Text style={styles.classTitle}>{clase.materia}</Text>

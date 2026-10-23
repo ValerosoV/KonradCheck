@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     Pressable,
     SafeAreaView,
@@ -16,7 +17,33 @@ const usuario = {
     facultad: 'Facultad de Matematicas e Ingeniería',
 };
 
+const LIMITE_INICIAL = 1;
+const reunionesAdicionales = [
+    {
+        titulo: 'Sistemas Operativos - Grupo 1',
+        tipo: 'CLASE',
+        descripcion: 'Administración de procesos y memoria',
+        ubicacion: 'Laboratorio 103',
+        fechaInicio: '2026-10-23T09:00:00Z',
+        fechaFin: '2026-10-23T11:00:00Z',
+        estado: 'PROGRAMADA',
+    },
+    {
+        titulo: 'Bases de Datos - Grupo 2',
+        tipo: 'CLASE',
+        descripcion: 'Consultas y modelado relacional',
+        ubicacion: 'Salón 205',
+        fechaInicio: '2026-10-24T14:00:00Z',
+        fechaFin: '2026-10-24T16:00:00Z',
+        estado: 'PROGRAMADA',
+    },
+];
+
 export default function ReunionesPersonal({ navigation }) {
+    const [mostrarAgenda, setMostrarAgenda] = useState(false);
+    const reuniones = [...reunionesMock, ...reunionesAdicionales];
+    const reunionesVisibles = mostrarAgenda ? reuniones : reuniones.slice(0, LIMITE_INICIAL);
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
@@ -50,10 +77,17 @@ export default function ReunionesPersonal({ navigation }) {
 
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Mis reuniones</Text>
-                    <Text style={styles.sectionLink}>Ver agenda</Text>
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={mostrarAgenda ? 'Mostrar menos reuniones' : 'Ver agenda completa'}
+                        onPress={() => setMostrarAgenda((mostrar) => !mostrar)}
+                        hitSlop={10}
+                    >
+                        <Text style={styles.sectionLink}>{mostrarAgenda ? 'Ver menos' : 'Ver agenda'}</Text>
+                    </Pressable>
                 </View>
 
-                {reunionesMock.map((reunion) => (
+                {reunionesVisibles.map((reunion) => (
                     <View key={reunion.titulo} style={styles.meetingCard}>
                         <View style={styles.cardHeader}>
                             <Text style={styles.cardType}>{reunion.tipo}</Text>
