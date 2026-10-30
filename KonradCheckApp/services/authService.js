@@ -1,14 +1,11 @@
-// Este archivo sera el punto central para la autenticacion.
+// Este archivo es el punto central para la autenticacion.
+// Por ahora responde con datos de prueba; luego se conectara al backend.
 
-// En el futuro, importar el cliente de la base de datos:
-// import { database } from './databaseClient';
-
-// Pseudocodigo para validar las credenciales contra la BD:
-// export async function validarCredenciales(correo, contrasena) {
-//     const resultado = await database.query(
-//         'SELECT id FROM usuarios WHERE correo = ? AND contrasena = ?',
-//         [correo, contrasena]
-//     );
-//
-//     return resultado.rows.length > 0;
-// }
+export {
+    iniciarSesion,
+    cerrarSesion,
+    obtenerUsuarioActual,
+    solicitarRecuperacion,
+    restablecerContrasena,
+    cambiarContrasena,
+} from './apiSimulada';

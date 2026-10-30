@@ -1,72 +1,43 @@
+import { useState } from 'react';
 import {
-    SafeAreaView,
+    ActivityIndicator,
+    Pressable,
     ScrollView,
-    View,
-    Text,
     StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import BottomTabBar from './BottomTabBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDatosEnVivo } from '../../../hooks/useDatosEnVivo';
+import { obtenerHistorial } from '../../../services/asistenciaService';
+import { formatearDia, formatearHora } from '../../../services/fechas';
+import EstadoPill from '../../components/EstadoPill';
 
-// Pantalla de historial: solo maqueta visual con datos de ejemplo.
+const FILTRO_TODAS = 'Todas';
 
-const resumen = {
-    asistenciaGeneral: '92.4%',
-    clasesRegistradas: '36 / 39',
-};
-
-const filtros = ['Todas', 'Arq. Software', 'Sistemas Op.'];
-
-const registros = [
-    {
-        id: '1',
-        materia: 'Sistemas Operativos',
-        fecha: 'Hoy, 24 de Oct',
-        estado: 'Presente',
-    },
-    {
-        id: '2',
-        materia: 'Arquitectura de Software',
-        fecha: 'Ayer, 23 de Oct',
-        estado: 'Tardanza',
-    },
-    {
-        id: '3',
-        materia: 'Cálculo Multivariable',
-        fecha: 'Marzo 21, 2025',
-        estado: 'Presente',
-    },
-    {
-        id: '4',
-        materia: 'Sistemas Operativos',
-        fecha: 'Marzo 18, 2025',
-        estado: 'Ausente',
-    },
-    {
-        id: '5',
-        materia: 'Electiva Humanidades',
-        fecha: 'Marzo 14, 2025',
-        estado: 'Presente',
-    },
-];
-
-const ESTADO_STYLES = {
-    Presente: { bg: '#DFF7E6', text: '#1E9E5A' },
-    Tardanza: { bg: '#FBEFD1', text: '#B07A1E' },
-    Ausente: { bg: '#FBE1DE', text: '#C0392B' },
-};
-
-function EstadoPill({ estado }) {
-    const { bg, text } = ESTADO_STYLES[estado];
-    return (
-        <View style={[styles.pill, { backgroundColor: bg }]}>
-            <Text style={[styles.pillText, { color: text }]}>{estado}</Text>
-        </View>
-    );
+function calcularResumen(registros) {
+    const total = registros.length;
+    const asistidas = registros.filter((registro) => registro.estado !== 'Ausente').length;
+    const porcentaje = total === 0 ? 0 : (asistidas / total) * 100;
+    return {
+        asistenciaGeneral: `${porcentaje.toFixed(1)}%`,
+        clasesRegistradas: `${asistidas} / ${total}`,
+    };
 }
 
-export default function Historial({ navigation }) {
+export default function Historial() {
+    const [filtro, setFiltro] = useState(FILTRO_TODAS);
+    const { datos, error, cargando, recargar } = useDatosEnVivo(obtenerHistorial);
+
+    const todos = datos ?? [];
+    const filtros = [FILTRO_TODAS, ...new Set(todos.map((registro) => registro.titulo))];
+    const registros = filtro === FILTRO_TODAS
+        ? todos
+        : todos.filter((registro) => registro.titulo === filtro);
+    const resumen = calcularResumen(registros);
+
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
@@ -80,51 +51,62 @@ export default function Historial({ navigation }) {
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Asistencia General</Text>
-                        <Text style={styles.statValueTeal}>
-                            {resumen.asistenciaGeneral}
-                        </Text>
+                        <Text style={styles.statValueTeal}>{resumen.asistenciaGeneral}</Text>
                     </View>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Clases Registradas</Text>
-                        <Text style={styles.statValueDark}>
-                            {resumen.clasesRegistradas}
-                        </Text>
+                        <Text style={styles.statValueDark}>{resumen.clasesRegistradas}</Text>
                     </View>
                 </View>
 
-                <View style={styles.filtersRow}>
-                    {filtros.map((filtro, index) => (
-                        <View
-                            key={filtro}
-                            style={[
-                                styles.filterChip,
-                                index === 0 && styles.filterChipActive,
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.filterChipText,
-                                    index === 0 && styles.filterChipTextActive,
-                                ]}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.filtersScroll}
+                    contentContainerStyle={styles.filtersRow}
+                >
+                    {filtros.map((opcion) => {
+                        const activo = opcion === filtro;
+                        return (
+                            <Pressable
+                                key={opcion}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: activo }}
+                                onPress={() => setFiltro(opcion)}
+                                style={[styles.filterChip, activo && styles.filterChipActive]}
                             >
-                                {filtro}
-                            </Text>
-                        </View>
-                    ))}
-                </View>
+                                <Text style={[styles.filterChipText, activo && styles.filterChipTextActive]}>
+                                    {opcion}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </ScrollView>
+
+                {cargando && <ActivityIndicator color="#12A889" style={styles.estadoLista} />}
+                {error && !datos && (
+                    <Pressable onPress={recargar} style={styles.estadoLista}>
+                        <Text style={styles.errorTexto}>{error}</Text>
+                        <Text style={styles.reintentar}>Reintentar</Text>
+                    </Pressable>
+                )}
+                {datos && registros.length === 0 && (
+                    <Text style={styles.vacio}>Todavía no tienes registros de asistencia.</Text>
+                )}
 
                 {registros.map((registro) => (
                     <View key={registro.id} style={styles.recordCard}>
                         <View style={styles.recordTextBlock}>
-                            <Text style={styles.recordTitle}>{registro.materia}</Text>
-                            <Text style={styles.recordDate}>{registro.fecha}</Text>
+                            <Text style={styles.recordTitle}>{registro.titulo}</Text>
+                            <Text style={styles.recordDate}>
+                                {formatearDia(registro.inicio)}
+                                {registro.registradoEn ? ` · ${formatearHora(registro.registradoEn)}` : ''}
+                            </Text>
                         </View>
                         <EstadoPill estado={registro.estado} />
                     </View>
                 ))}
             </ScrollView>
-
-            <BottomTabBar navigation={navigation} active="Historial" />
         </SafeAreaView>
     );
 }
@@ -185,11 +167,14 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '800',
     },
-    filtersRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
+    filtersScroll: {
+        flexGrow: 0,
         marginBottom: 22,
+        marginHorizontal: -24,
+    },
+    filtersRow: {
+        gap: 10,
+        paddingHorizontal: 24,
     },
     filterChip: {
         backgroundColor: '#FFFFFF',
@@ -210,6 +195,28 @@ const styles = StyleSheet.create({
     },
     filterChipTextActive: {
         color: '#FFFFFF',
+    },
+    estadoLista: {
+        marginVertical: 20,
+    },
+    errorTexto: {
+        color: '#C0392B',
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: 'center',
+    },
+    reintentar: {
+        color: '#12A889',
+        fontSize: 14,
+        fontWeight: '700',
+        marginTop: 8,
+        textAlign: 'center',
+    },
+    vacio: {
+        color: '#667085',
+        fontSize: 14,
+        marginVertical: 20,
+        textAlign: 'center',
     },
     recordCard: {
         alignItems: 'center',
@@ -238,14 +245,5 @@ const styles = StyleSheet.create({
     recordDate: {
         color: '#98A2B3',
         fontSize: 13,
-    },
-    pill: {
-        borderRadius: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    pillText: {
-        fontSize: 12,
-        fontWeight: '700',
     },
 });

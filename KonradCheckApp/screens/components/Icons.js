@@ -1,7 +1,8 @@
 import { View, StyleSheet } from 'react-native';
 
 // Iconos y patrones QR dibujados con Views (no hay libreria de iconos instalada).
-// Todo es puramente visual, con datos de ejemplo fijos.
+// Dibujar el QR con Views evita que exista una imagen que se pueda guardar con
+// una pulsacion larga. miniQrMatrix es decorativa, el real sale de matrizQr().
 
 function pseudoRandomBit(i, j) {
     const value = (i * 928371 + j * 123457 + i * j * 97) % 7;
@@ -34,7 +35,6 @@ export function generateQrMatrix(size) {
 }
 
 export const miniQrMatrix = generateQrMatrix(15);
-export const bigQrMatrix = generateQrMatrix(21);
 
 export function QrGrid({ matrix, cellSize = 3, color = '#0B1220' }) {
     return (
@@ -147,12 +147,7 @@ export function QuestionIcon({ color }) {
 }
 
 export function ChevronIcon({ color }) {
-    return (
-        <View style={styles.chevronWrap}>
-            <View style={[styles.chevronArm, { backgroundColor: color }]} />
-            <View style={[styles.chevronArm, styles.chevronArmBottom, { backgroundColor: color }]} />
-        </View>
-    );
+    return <View style={[styles.chevron, { borderColor: color }]} />;
 }
 
 const styles = StyleSheet.create({
@@ -317,21 +312,12 @@ const styles = StyleSheet.create({
         width: 7,
         transform: [{ rotate: '45deg' }],
     },
-    chevronWrap: {
-        height: 12,
-        justifyContent: 'center',
-        transform: [{ rotate: '-45deg' }],
-        width: 10,
-    },
-    chevronArm: {
-        borderRadius: 1,
-        height: 2,
-        position: 'absolute',
-        top: 0,
+    chevron: {
+        borderRightWidth: 2,
+        borderTopWidth: 2,
+        height: 8,
+        marginRight: 2,
+        transform: [{ rotate: '45deg' }],
         width: 8,
-    },
-    chevronArmBottom: {
-        transform: [{ rotate: '90deg' }],
-        top: 5,
     },
 });

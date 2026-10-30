@@ -1,101 +1,79 @@
 import { useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    View,
-    Text,
+    ActivityIndicator,
     Pressable,
+    RefreshControl,
+    ScrollView,
     StyleSheet,
+    Text,
+    View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
+import { useDatosEnVivo } from '../../../hooks/useDatosEnVivo';
+import { esHoy, formatearDia, formatearHora, formatearRango } from '../../../services/fechas';
+import { listarReuniones } from '../../../services/reunionesService';
+import EstadoPill from '../../components/EstadoPill';
 import { QrGrid, PinIcon, QrIcon, miniQrMatrix } from '../../components/Icons';
-import BottomTabBar from './BottomTabBar';
 
 const LIMITE_INICIAL = 2;
 
-const usuario = {
-    nombre: 'David Gómez',
-    iniciales: 'DG',
-    codigo: '22019483',
-};
+const ORDEN_ESTADO = { EN_CURSO: 0, PROGRAMADA: 1, FINALIZADA: 2 };
 
-const clases = [
-    {
-        id: '1',
-        materia: 'Arquitectura de Software',
-        horario: '07:00 - 09:00',
-        lugar: 'Salón 402, Edificio Central',
-        estado: 'Presente',
-    },
-    {
-        id: '2',
-        materia: 'Sistemas Operativos',
-        horario: '09:00 - 11:00',
-        lugar: 'Salón 103, Laboratorio',
-        estado: 'Pendiente',
-    },
-    {
-        id: '3',
-        materia: 'Cálculo Multivariable',
-        horario: '11:00 - 13:00',
-        lugar: 'Salón 301, Edificio Central',
-        estado: 'Pendiente',
-    },
-    {
-        id: '4',
-        materia: 'Electiva de Humanidades',
-        horario: '14:00 - 16:00',
-        lugar: 'Salón 205, Edificio Norte',
-        estado: 'Pendiente',
-    },
-    {
-        id: '5',
-        materia: 'Bases de Datos',
-        horario: '16:00 - 18:00',
-        lugar: 'Laboratorio 2',
-        estado: 'Pendiente',
-    },
-];
-
-function EstadoPill({ estado }) {
-    const esPresente = estado === 'Presente';
-    return (
-        <View
-            style={[
-                styles.pill,
-                { backgroundColor: esPresente ? '#DFF7E6' : '#FBEFD1' },
-            ]}
-        >
-            <Text
-                style={[
-                    styles.pillText,
-                    { color: esPresente ? '#1E9E5A' : '#B07A1E' },
-                ]}
-            >
-                {estado}
-            </Text>
-        </View>
+function ordenarClases(clases) {
+    return [...clases].sort(
+        (a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado] || a.inicio - b.inicio,
     );
 }
 
+function iniciales(nombre) {
+    const partes = nombre.split(' ');
+    return `${partes[0][0]}${partes[1]?.[0] ?? ''}`.toUpperCase();
+}
+
+function BotonTicket({ clase, onPress }) {
+    if (clase.ticketDisponible) {
+        return (
+            <Pressable style={styles.qrButton} onPress={onPress}>
+                <QrIcon color="#12A889" />
+                <Text style={styles.qrButtonText}>QR</Text>
+            </Pressable>
+        );
+    }
+    if (clase.estado === 'PROGRAMADA') {
+        return <Text style={styles.ticketNota}>Desde {formatearHora(clase.ticketDesde)}</Text>;
+    }
+    return null;
+}
+
 export default function Reuniones({ navigation }) {
+    const { usuario } = useAuth();
     const [mostrarTodas, setMostrarTodas] = useState(false);
-    const clasesVisibles = mostrarTodas ? clases : clases.slice(0, LIMITE_INICIAL);
+    const { datos, error, cargando, recargar } = useDatosEnVivo(listarReuniones, { intervalo: 5000 });
+
+    const clases = ordenarClases(datos ?? []);
+    const clasesDeHoy = clases.filter((clase) => esHoy(clase.inicio));
+    const clasesVisibles = mostrarTodas ? clases : clasesDeHoy.slice(0, LIMITE_INICIAL);
+    const ticketActivo = clases.find((clase) => clase.ticketDisponible);
+
+    const abrirTicket = (clase) => navigation.navigate('MiQR', { reunionId: clase.id });
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={false} onRefresh={recargar} tintColor="#12A889" />}
             >
                 <View style={styles.headerRow}>
-                    <View>
+                    <View style={styles.headerText}>
                         <Text style={styles.greeting}>¡Hola de nuevo!</Text>
                         <Text style={styles.userName}>{usuario.nombre}</Text>
                         <Text style={styles.userCode}>Código: {usuario.codigo}</Text>
                     </View>
                     <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{usuario.iniciales}</Text>
+                        <Text style={styles.avatarText}>{iniciales(usuario.nombre)}</Text>
                     </View>
                 </View>
 
@@ -103,15 +81,20 @@ export default function Reuniones({ navigation }) {
                     <View style={styles.attendanceTextBlock}>
                         <Text style={styles.attendanceTitle}>Asistencia rápida</Text>
                         <Text style={styles.attendanceSubtitle}>
-                            Muestra tu código QR dinámico para registrar tu entrada.
+                            {ticketActivo
+                                ? `Tu ticket de ${ticketActivo.titulo} está listo. Muéstralo en el escáner del salón.`
+                                : 'Cuando tengas una clase activa, tu ticket aparecerá aquí.'}
                         </Text>
                     </View>
                     <Pressable
-                        style={styles.qrCard}
-                        onPress={() => navigation.navigate('MiQR')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Abrir ticket de la clase activa"
+                        disabled={!ticketActivo}
+                        style={[styles.qrCard, !ticketActivo && styles.qrCardInactivo]}
+                        onPress={() => abrirTicket(ticketActivo)}
                     >
-                        <Text style={styles.qrLabel}>STUDENT ATTENDANCE</Text>
-                        <QrGrid matrix={miniQrMatrix} cellSize={3.5} />
+                        <QrGrid matrix={miniQrMatrix} cellSize={3} />
+                        <Text style={styles.qrLabel}>{ticketActivo ? 'ABRIR TICKET' : 'SIN TICKET'}</Text>
                     </Pressable>
                 </View>
 
@@ -127,36 +110,40 @@ export default function Reuniones({ navigation }) {
                     </Pressable>
                 </View>
 
+                {cargando && <ActivityIndicator color="#12A889" style={styles.estadoLista} />}
+                {error && !datos && (
+                    <Pressable onPress={recargar} style={styles.estadoLista}>
+                        <Text style={styles.errorTexto}>{error}</Text>
+                        <Text style={styles.sectionLinkCentrado}>Reintentar</Text>
+                    </Pressable>
+                )}
+                {datos && clasesVisibles.length === 0 && (
+                    <Text style={styles.vacio}>No tienes clases programadas para hoy.</Text>
+                )}
+
                 {clasesVisibles.map((clase) => (
                     <View key={clase.id} style={styles.classCard}>
                         <View style={styles.classHeaderRow}>
-                            <Text style={styles.classTitle}>{clase.materia}</Text>
-                            <EstadoPill estado={clase.estado} />
+                            <Text style={styles.classTitle}>{clase.titulo}</Text>
+                            <EstadoPill estado={clase.asistencia} />
                         </View>
-                        <Text style={styles.classTime}>{clase.horario}</Text>
+                        <Text style={styles.classTime}>
+                            {esHoy(clase.inicio) ? '' : `${formatearDia(clase.inicio)} · `}
+                            {formatearRango(clase.inicio, clase.fin)}
+                        </Text>
 
                         <View style={styles.divider} />
 
                         <View style={styles.classFooterRow}>
                             <View style={styles.classLocationRow}>
                                 <PinIcon color="#12A889" />
-                                <Text style={styles.classLocation}>{clase.lugar}</Text>
+                                <Text style={styles.classLocation}>{clase.ubicacion}</Text>
                             </View>
-                            <Pressable
-                                style={styles.qrButton}
-                                onPress={() =>
-                                    navigation.navigate('MiQR', { materia: clase.materia })
-                                }
-                            >
-                                <QrIcon color="#12A889" />
-                                <Text style={styles.qrButtonText}>QR</Text>
-                            </Pressable>
+                            <BotonTicket clase={clase} onPress={() => abrirTicket(clase)} />
                         </View>
                     </View>
                 ))}
             </ScrollView>
-
-            <BottomTabBar navigation={navigation} active="Reuniones" />
         </SafeAreaView>
     );
 }
@@ -179,6 +166,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 24,
+    },
+    headerText: {
+        flex: 1,
+        paddingRight: 12,
     },
     greeting: {
         color: '#667085',
@@ -239,9 +230,12 @@ const styles = StyleSheet.create({
         gap: 6,
         padding: 8,
     },
+    qrCardInactivo: {
+        opacity: 0.45,
+    },
     qrLabel: {
-        color: '#98A2B3',
-        fontSize: 6,
+        color: '#667085',
+        fontSize: 9,
         fontWeight: '700',
         letterSpacing: 0.5,
     },
@@ -260,6 +254,28 @@ const styles = StyleSheet.create({
         color: '#12A889',
         fontSize: 14,
         fontWeight: '700',
+    },
+    sectionLinkCentrado: {
+        color: '#12A889',
+        fontSize: 14,
+        fontWeight: '700',
+        marginTop: 8,
+        textAlign: 'center',
+    },
+    estadoLista: {
+        marginVertical: 20,
+    },
+    errorTexto: {
+        color: '#C0392B',
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: 'center',
+    },
+    vacio: {
+        color: '#667085',
+        fontSize: 14,
+        marginVertical: 20,
+        textAlign: 'center',
     },
     classCard: {
         backgroundColor: '#FFFFFF',
@@ -289,15 +305,6 @@ const styles = StyleSheet.create({
         color: '#667085',
         fontSize: 14,
         marginBottom: 14,
-    },
-    pill: {
-        borderRadius: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-    },
-    pillText: {
-        fontSize: 12,
-        fontWeight: '700',
     },
     divider: {
         backgroundColor: '#EEF1F5',
@@ -334,5 +341,11 @@ const styles = StyleSheet.create({
         color: '#12A889',
         fontSize: 13,
         fontWeight: '700',
+    },
+    ticketNota: {
+        color: '#98A2B3',
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 10,
     },
 });

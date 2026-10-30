@@ -1,66 +1,78 @@
 import { useState } from 'react';
 import {
+    ActivityIndicator,
     Pressable,
-    SafeAreaView,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
-import { reunionesMock } from '../../../data/reunionesMock';
-import BottomTabBarPersonal from './BottomTabBarPersonal';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../../context/AuthContext';
+import { useDatosEnVivo } from '../../../hooks/useDatosEnVivo';
+import { esHoy, formatearDia, formatearRango } from '../../../services/fechas';
+import { listarReuniones } from '../../../services/reunionesService';
 
-const usuario = {
-    nombre: 'Docente Konrad',
-    iniciales: 'DK',
-    rol: 'Docente',
-    facultad: 'Facultad de Matematicas e Ingeniería',
-};
+const LIMITE_INICIAL = 2;
+const ORDEN_ESTADO = { EN_CURSO: 0, PROGRAMADA: 1, FINALIZADA: 2 };
+const ETIQUETA_ESTADO = { EN_CURSO: 'EN CURSO', PROGRAMADA: 'PROGRAMADA', FINALIZADA: 'FINALIZADA' };
+const ETIQUETA_TIPO = { CLASE: 'CLASE', REUNION: 'REUNIÓN' };
 
-const LIMITE_INICIAL = 1;
-const reunionesAdicionales = [
-    {
-        titulo: 'Sistemas Operativos - Grupo 1',
-        tipo: 'CLASE',
-        descripcion: 'Administración de procesos y memoria',
-        ubicacion: 'Laboratorio 103',
-        fechaInicio: '2026-10-23T09:00:00Z',
-        fechaFin: '2026-10-23T11:00:00Z',
-        estado: 'PROGRAMADA',
-    },
-    {
-        titulo: 'Bases de Datos - Grupo 2',
-        tipo: 'CLASE',
-        descripcion: 'Consultas y modelado relacional',
-        ubicacion: 'Salón 205',
-        fechaInicio: '2026-10-24T14:00:00Z',
-        fechaFin: '2026-10-24T16:00:00Z',
-        estado: 'PROGRAMADA',
-    },
-];
+// En curso primero, luego lo que viene y al final lo mas reciente que ya paso.
+function ordenarAgenda(reuniones) {
+    return [...reuniones].sort((a, b) => {
+        const porEstado = ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado];
+        if (porEstado !== 0) return porEstado;
+        return a.estado === 'FINALIZADA' ? b.inicio - a.inicio : a.inicio - b.inicio;
+    });
+}
 
-export default function ReunionesPersonal({ navigation }) {
+function iniciales(nombre) {
+    return nombre
+        .split(' ')
+        .filter((parte) => parte.length > 3)
+        .slice(0, 2)
+        .map((parte) => parte[0])
+        .join('')
+        .toUpperCase();
+}
+
+export default function ReunionesPersonal({ navigation, route }) {
+    const { usuario } = useAuth();
     const [mostrarAgenda, setMostrarAgenda] = useState(false);
-    const reuniones = [...reunionesMock, ...reunionesAdicionales];
+    const { datos, error, cargando, recargar } = useDatosEnVivo(listarReuniones, { intervalo: 5000 });
+
+    const reuniones = ordenarAgenda(datos ?? []);
     const reunionesVisibles = mostrarAgenda ? reuniones : reuniones.slice(0, LIMITE_INICIAL);
+    const creada = route.params?.creada;
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={false} onRefresh={recargar} tintColor="#12A889" />}
             >
                 <View style={styles.headerRow}>
-                    <View>
-                        <Text style={styles.greeting}>Bienvenido Docente</Text>
+                    <View style={styles.headerText}>
+                        <Text style={styles.greeting}>
+                            {usuario.rol === 'docente' ? 'Bienvenido Docente' : 'Bienvenido Administrativo'}
+                        </Text>
                         <Text style={styles.userName}>{usuario.nombre}</Text>
-                        <Text style={styles.userRole}>{usuario.facultad}</Text>
+                        <Text style={styles.userRole}>{usuario.detalle}</Text>
                     </View>
                     <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{usuario.iniciales}</Text>
+                        <Text style={styles.avatarText}>{iniciales(usuario.nombre)}</Text>
                     </View>
                 </View>
+
+                {creada && (
+                    <View style={styles.bannerExito}>
+                        <Text style={styles.bannerTexto}>Se programó «{creada}» y se crearon sus tickets.</Text>
+                    </View>
+                )}
 
                 <Pressable
                     onPress={() => navigation.navigate('ProgramarReunion')}
@@ -69,7 +81,7 @@ export default function ReunionesPersonal({ navigation }) {
                     <View style={styles.scheduleIcon}>
                         <Text style={styles.schedulePlus}>+</Text>
                     </View>
-                    <View>
+                    <View style={styles.scheduleText}>
                         <Text style={styles.scheduleTitle}>Programar nueva reunión</Text>
                         <Text style={styles.scheduleSubtitle}>Crea un evento para tus estudiantes</Text>
                     </View>
@@ -87,30 +99,59 @@ export default function ReunionesPersonal({ navigation }) {
                     </Pressable>
                 </View>
 
+                {cargando && <ActivityIndicator color="#12A889" style={styles.estadoLista} />}
+                {error && !datos && (
+                    <Pressable onPress={recargar} style={styles.estadoLista}>
+                        <Text style={styles.errorTexto}>{error}</Text>
+                        <Text style={styles.reintentar}>Reintentar</Text>
+                    </Pressable>
+                )}
+                {datos && reuniones.length === 0 && (
+                    <Text style={styles.vacio}>Todavía no tienes reuniones programadas.</Text>
+                )}
+
                 {reunionesVisibles.map((reunion) => (
-                    <View key={reunion.titulo} style={styles.meetingCard}>
+                    <View key={reunion.id} style={styles.meetingCard}>
                         <View style={styles.cardHeader}>
-                            <Text style={styles.cardType}>{reunion.tipo}</Text>
-                            <Text style={styles.status}>{reunion.estado}</Text>
+                            <Text style={styles.cardType}>{ETIQUETA_TIPO[reunion.tipo]}</Text>
+                            <Text style={[styles.status, reunion.estado === 'FINALIZADA' && styles.statusFinalizada]}>
+                                {ETIQUETA_ESTADO[reunion.estado]}
+                            </Text>
                         </View>
                         <Text style={styles.cardTitle}>{reunion.titulo}</Text>
                         <Text style={styles.cardSchedule}>
-                            09:00 - 11:00 · {reunion.ubicacion}
+                            {esHoy(reunion.inicio) ? '' : `${formatearDia(reunion.inicio)} · `}
+                            {formatearRango(reunion.inicio, reunion.fin)} · {reunion.ubicacion}
                         </Text>
                         <View style={styles.divider} />
-                        <Text style={styles.cardDescription}>Descripción</Text>
-                        <Text style={styles.cardDetail}>{reunion.descripcion}</Text>
-                        <Text style={styles.attendanceSummary}>♧ 28 / 35 Registrados</Text>
-                        <Pressable
-                            onPress={() => navigation.navigate('ReporteAsistencia', { reunion })}
-                            style={styles.reportButton}
-                        >
-                            <Text style={styles.reportButtonText}>Consultar asistencia</Text>
-                        </Pressable>
+                        {!!reunion.descripcion && (
+                            <>
+                                <Text style={styles.cardDescription}>Descripción</Text>
+                                <Text style={styles.cardDetail}>{reunion.descripcion}</Text>
+                            </>
+                        )}
+                        <Text style={styles.attendanceSummary}>
+                            {reunion.registrados} / {reunion.total} Registrados
+                        </Text>
+                        <View style={styles.cardActions}>
+                            <Pressable
+                                onPress={() => navigation.navigate('ReporteAsistencia', { reunionId: reunion.id })}
+                                style={styles.reportButton}
+                            >
+                                <Text style={styles.reportButtonText}>Consultar asistencia</Text>
+                            </Pressable>
+                            {reunion.escaneoActivo && (
+                                <Pressable
+                                    onPress={() => navigation.navigate('EscanearQR', { reunionId: reunion.id })}
+                                    style={styles.scanButton}
+                                >
+                                    <Text style={styles.scanButtonText}>Escanear</Text>
+                                </Pressable>
+                            )}
+                        </View>
                     </View>
                 ))}
             </ScrollView>
-            <BottomTabBarPersonal navigation={navigation} active="ReunionesPersonal" />
         </SafeAreaView>
     );
 }
@@ -120,29 +161,41 @@ const styles = StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: { paddingBottom: 20, paddingHorizontal: 22, paddingTop: 18 },
     headerRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
-    greeting: { color: '#344054', fontSize: 11, marginBottom: 3 },
-    userName: { color: '#172B4D', fontSize: 18, fontWeight: '800', marginBottom: 4 },
-    userRole: { color: '#98A2B3', fontSize: 10 },
-    avatar: { alignItems: 'center', backgroundColor: '#12A889', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
+    headerText: { flex: 1, paddingRight: 12 },
+    greeting: { color: '#344054', fontSize: 14, marginBottom: 3 },
+    userName: { color: '#172B4D', fontSize: 22, fontWeight: '800', marginBottom: 4 },
+    userRole: { color: '#98A2B3', fontSize: 13 },
+    avatar: { alignItems: 'center', backgroundColor: '#12A889', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
     avatarText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    scheduleButton: { alignItems: 'center', backgroundColor: '#111827', borderRadius: 12, flexDirection: 'row', marginBottom: 18, paddingHorizontal: 14, paddingVertical: 13 },
-    scheduleIcon: { alignItems: 'center', backgroundColor: '#087C71', borderRadius: 14, height: 28, justifyContent: 'center', marginRight: 12, width: 28 },
-    schedulePlus: { color: '#FFFFFF', fontSize: 22, fontWeight: '300', lineHeight: 24 },
-    scheduleTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-    scheduleSubtitle: { color: '#B7C0D1', fontSize: 9, marginTop: 4 },
-    sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    sectionTitle: { color: '#172B4D', fontSize: 16, fontWeight: '800' },
-    sectionLink: { color: '#07877B', fontSize: 10, fontWeight: '700' },
-    meetingCard: { backgroundColor: '#FFFFFF', borderRadius: 10, marginBottom: 12, padding: 12, shadowColor: '#172B4D', shadowOffset: { height: 2, width: 0 }, shadowOpacity: 0.04, shadowRadius: 5, elevation: 1 },
+    bannerExito: { backgroundColor: '#DFF7E6', borderRadius: 12, marginBottom: 14, padding: 12 },
+    bannerTexto: { color: '#1E9E5A', fontSize: 13, fontWeight: '700', lineHeight: 18 },
+    scheduleButton: { alignItems: 'center', backgroundColor: '#111827', borderRadius: 14, flexDirection: 'row', marginBottom: 22, paddingHorizontal: 16, paddingVertical: 15 },
+    scheduleIcon: { alignItems: 'center', backgroundColor: '#087C71', borderRadius: 17, height: 34, justifyContent: 'center', marginRight: 12, width: 34 },
+    schedulePlus: { color: '#FFFFFF', fontSize: 24, fontWeight: '300', lineHeight: 26 },
+    scheduleText: { flex: 1 },
+    scheduleTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+    scheduleSubtitle: { color: '#B7C0D1', fontSize: 12, marginTop: 4 },
+    sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+    sectionTitle: { color: '#172B4D', fontSize: 18, fontWeight: '800' },
+    sectionLink: { color: '#07877B', fontSize: 14, fontWeight: '700' },
+    estadoLista: { marginVertical: 20 },
+    errorTexto: { color: '#C0392B', fontSize: 14, lineHeight: 20, textAlign: 'center' },
+    reintentar: { color: '#07877B', fontSize: 14, fontWeight: '700', marginTop: 8, textAlign: 'center' },
+    vacio: { color: '#667085', fontSize: 14, marginVertical: 20, textAlign: 'center' },
+    meetingCard: { backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14, padding: 16, shadowColor: '#172B4D', shadowOffset: { height: 2, width: 0 }, shadowOpacity: 0.04, shadowRadius: 5, elevation: 1 },
     cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-    cardType: { color: '#12A889', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
-    status: { backgroundColor: '#C9F6EA', borderRadius: 8, color: '#07877B', fontSize: 8, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 4 },
-    cardTitle: { color: '#172B4D', fontSize: 13, fontWeight: '800', marginTop: 8 },
-    cardSchedule: { color: '#667085', fontSize: 9, marginTop: 4 },
-    divider: { backgroundColor: '#EEF1F5', height: 1, marginTop: 9 },
-    cardDescription: { color: '#98A2B3', fontSize: 9, marginTop: 9 },
-    cardDetail: { color: '#667085', fontSize: 9, marginTop: 3 },
-    attendanceSummary: { color: '#344054', fontSize: 9, fontWeight: '700', marginTop: 9 },
-    reportButton: { alignItems: 'center', backgroundColor: '#C9F6EA', borderRadius: 5, marginTop: 9, paddingVertical: 7 },
-    reportButtonText: { color: '#07877B', fontSize: 9, fontWeight: '800' },
+    cardType: { color: '#12A889', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+    status: { backgroundColor: '#C9F6EA', borderRadius: 8, color: '#07877B', fontSize: 11, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4 },
+    statusFinalizada: { backgroundColor: '#EEF1F5', color: '#667085' },
+    cardTitle: { color: '#172B4D', fontSize: 16, fontWeight: '800', marginTop: 8 },
+    cardSchedule: { color: '#667085', fontSize: 13, lineHeight: 18, marginTop: 4 },
+    divider: { backgroundColor: '#EEF1F5', height: 1, marginTop: 11 },
+    cardDescription: { color: '#98A2B3', fontSize: 12, marginTop: 10 },
+    cardDetail: { color: '#667085', fontSize: 13, lineHeight: 18, marginTop: 3 },
+    attendanceSummary: { color: '#344054', fontSize: 13, fontWeight: '700', marginTop: 10 },
+    cardActions: { flexDirection: 'row', gap: 8, marginTop: 11 },
+    reportButton: { alignItems: 'center', backgroundColor: '#C9F6EA', borderRadius: 8, flex: 1, paddingVertical: 10 },
+    reportButtonText: { color: '#07877B', fontSize: 13, fontWeight: '800' },
+    scanButton: { alignItems: 'center', backgroundColor: '#12A889', borderRadius: 8, paddingHorizontal: 18, paddingVertical: 10 },
+    scanButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
 });
