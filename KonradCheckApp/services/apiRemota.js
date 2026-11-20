@@ -99,12 +99,20 @@ export function listarTicketsPendientes(reunionId) {
     return solicitar(`/reuniones/${encodeURIComponent(reunionId)}/tickets-pendientes`);
 }
 
-export async function solicitarRecuperacion() {
-    throw new Error('La recuperación de contraseña estará disponible en una siguiente etapa.');
+export function solicitarRecuperacion(correo) {
+    return solicitar('/auth/password-reset/request', {
+        metodo: 'POST',
+        cuerpo: { correo },
+        requiereSesion: false,
+    });
 }
 
-export async function restablecerContrasena() {
-    throw new Error('El cambio de contraseña estará disponible en una siguiente etapa.');
+export function restablecerContrasena(correo, codigo, nuevaContrasena) {
+    return solicitar('/auth/password-reset/confirm', {
+        metodo: 'POST',
+        cuerpo: { correo, codigo, nuevaContrasena },
+        requiereSesion: false,
+    });
 }
 
 export async function cambiarContrasena() {

@@ -3,6 +3,8 @@ package com.konradcheck
 import com.konradcheck.config.FirebaseConfig
 import com.konradcheck.data.FirestoreRepository
 import com.konradcheck.routes.configureRoutes
+import com.konradcheck.services.BrevoEmailSender
+import com.konradcheck.services.PasswordResetDeliveryException
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -22,7 +24,7 @@ import org.slf4j.LoggerFactory
 private val logger = LoggerFactory.getLogger("KonradCheck")
 
 fun Application.module() {
-    val repository = FirestoreRepository(FirebaseConfig.firestore())
+    val repository = FirestoreRepository(FirebaseConfig.firestore(), BrevoEmailSender())
 
     install(ContentNegotiation) {
         json(Json {
@@ -49,6 +51,12 @@ fun Application.module() {
         }
         exception<NotFoundException> { call, cause ->
             call.respond(HttpStatusCode.NotFound, ErrorResponse(cause.message ?: "No encontrado."))
+        }
+        exception<PasswordResetDeliveryException> { call, cause ->
+            call.respond(
+                HttpStatusCode.ServiceUnavailable,
+                ErrorResponse(cause.message ?: "No se pudo enviar el código de recuperación."),
+            )
         }
         exception<BadRequestException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(cause.message ?: "Solicitud inválida."))

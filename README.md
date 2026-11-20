@@ -84,7 +84,7 @@ La contraseña de ambas cuentas de acceso demo es `Konrad123`. Los botones Estud
 
 - Se crean alrededor de la hora actual para que siempre haya una clase en curso.
 - Los botones de cuenta demo vuelven a asegurar las mismas reuniones sin duplicar registros ni borrar asistencias.
-- El reinicio remoto, la recuperación y el cambio de contraseña están pendientes en esta etapa.
+- La recuperación por correo está implementada; el cambio de contraseña desde una sesión activa y el reinicio remoto de datos demo siguen pendientes.
 
 ## Cómo funciona el ticket
 
@@ -109,7 +109,7 @@ Las validaciones y el registro de asistencia se realizan en el backend. Esta ver
 
 El backend y los pasos de instalación están en [KonradCheckBackend/README.md](KonradCheckBackend/README.md). La app solo necesita una URL en `KonradCheckApp/.env` (`EXPO_PUBLIC_API_URL`); en web/emulador local puede ser `http://localhost:8080`, y en un teléfono físico debe usarse la IP del computador en la red local.
 
-La inicialización demo usa IDs estables, prepara las cuatro personas de la plantilla CSV y una cuenta de acceso por rol. Repetirla no duplica reuniones ni inscripciones y conserva asistencias registradas. El reinicio remoto, la recuperación y el cambio de contraseña quedan pendientes.
+La inicialización demo usa IDs estables, prepara las cuatro personas de la plantilla CSV y una cuenta de acceso por rol. Repetirla no duplica reuniones ni inscripciones y conserva asistencias registradas. La recuperación de contraseña envía un código de un solo uso por correo; el reinicio remoto de datos demo y el cambio de contraseña desde una sesión activa siguen pendientes.
 
 ## Tecnologías
 
@@ -122,7 +122,6 @@ JavaScript, React Native, Expo SDK 58, Kotlin, Ktor, Firebase Admin SDK, Cloud F
 ├── KonradCheckApp/
 │   ├── App.js                # Navegación según el rol de la sesión
 │   ├── context/              # Sesión del usuario
-│   ├── data/                 # Datos de prueba legado
 │   ├── hooks/                # Datos en vivo y protección de capturas
 │   ├── services/             # API del backend, generación del QR, CSV y fechas
 │   ├── screens/

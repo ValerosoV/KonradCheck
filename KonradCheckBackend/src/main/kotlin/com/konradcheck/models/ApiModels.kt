@@ -6,6 +6,19 @@ import kotlinx.serialization.Serializable
 data class LoginRequest(val correo: String, val contrasena: String)
 
 @Serializable
+data class SolicitarRecuperacionRequest(val correo: String)
+
+@Serializable
+data class ConfirmarRecuperacionRequest(
+    val correo: String,
+    val codigo: String,
+    val nuevaContrasena: String,
+)
+
+@Serializable
+data class MensajeResponse(val mensaje: String)
+
+@Serializable
 data class LoginResponse(val token: String, val usuario: UsuarioDto)
 
 @Serializable

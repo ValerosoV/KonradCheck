@@ -37,8 +37,12 @@ import com.konradcheck.models.TicketDto
 import com.konradcheck.models.TicketPendienteDto
 import com.konradcheck.models.TicketResponse
 import com.konradcheck.models.UsuarioDto
+import com.konradcheck.models.MensajeResponse
+import com.konradcheck.security.PasswordHasher
+import com.konradcheck.services.PasswordResetEmailSender
 import java.time.Instant
 import java.time.ZoneId
+import java.security.SecureRandom
 import java.util.UUID
 
 private const val USERS = "usuarios"
@@ -49,6 +53,7 @@ private const val COURSES = "asignaturas"
 private const val MEETINGS = "reuniones"
 private const val ENROLLMENTS = "inscripciones"
 private const val SESSIONS = "sesiones"
+private const val PASSWORD_RESETS = "passwordResets"
 private const val DEMO_PASSWORD = "Konrad123"
 private const val DEMO_STUDENT_ID = "demo-estudiante"
 private const val DEMO_STAFF_ID = "demo-docente"
@@ -85,7 +90,13 @@ private data class EnrollmentSeed(
     val registradoEn: Long?,
 )
 
-class FirestoreRepository(private val db: Firestore) {
+class FirestoreRepository(
+    private val db: Firestore,
+    private val passwordResetEmailSender: PasswordResetEmailSender,
+) {
+    private val random = SecureRandom()
+    private val demoPasswordHash by lazy { PasswordHasher.hash(DEMO_PASSWORD) }
+
     private val studentsInCsv = listOf(
         StudentSeed(DEMO_STUDENT_ID, "22019483", "David Gómez", "david.gomez@konradlorenz.edu.co", true),
         StudentSeed("estudiante-22014389", "22014389", "María Camila Restrepo", "maria.restrepo@konradlorenz.edu.co"),
@@ -133,8 +144,11 @@ class FirestoreRepository(private val db: Firestore) {
             ?: throw UnauthorizedException("Correo o contraseña incorrectos.")
         val data = user.dataOrEmpty()
         val actualHash = data.optionalString("passwordHash")
-        if (actualHash == null || actualHash != sha256Hex(request.contrasena)) {
+        if (actualHash == null || !PasswordHasher.verify(request.contrasena, actualHash)) {
             throw UnauthorizedException("Correo o contraseña incorrectos.")
+        }
+        if (PasswordHasher.needsUpgrade(actualHash)) {
+            user.reference.update("passwordHash", PasswordHasher.hash(request.contrasena)).get()
         }
 
         val token = UUID.randomUUID().toString()
@@ -142,6 +156,107 @@ class FirestoreRepository(private val db: Firestore) {
             mapOf("usuarioId" to user.id),
         ).get()
         return LoginResponse(token, userDto(user.id, data))
+    }
+
+    fun requestPasswordReset(email: String): MensajeResponse {
+        val normalizedEmail = normalizeEmail(email)
+        require(EMAIL_REGEX.matches(normalizedEmail)) { "Ingresa un correo electrónico válido." }
+        passwordResetEmailSender.validateConfiguration()
+
+        val user = db.collection(USERS)
+            .whereEqualTo("correo", normalizedEmail)
+            .limit(1)
+            .get()
+            .get()
+            .documents
+            .firstOrNull()
+        if (user == null || user.getString("passwordHash").isNullOrBlank()) {
+            return PASSWORD_RESET_REQUEST_RESPONSE
+        }
+
+        val now = System.currentTimeMillis()
+        val code = random.nextInt(1_000_000).toString().padStart(6, '0')
+        val resetRef = db.collection(PASSWORD_RESETS).document(sha256Hex(normalizedEmail))
+        val shouldSend = db.runTransaction { transaction ->
+            val existing = transaction.get(resetRef).get()
+            val requestedAt = existing.getLong("requestedAt") ?: 0L
+            if (existing.exists() && now - requestedAt < RESET_REQUEST_COOLDOWN_MS) {
+                false
+            } else {
+                val encodedCode = PasswordHasher.hash(code)
+                transaction.set(
+                    resetRef,
+                    mapOf(
+                        "userId" to user.id,
+                        "codeHash" to encodedCode,
+                        "attempts" to 0,
+                        "requestedAt" to now,
+                        "expiresAt" to now + RESET_CODE_TTL_MS,
+                    ),
+                )
+                true
+            }
+        }.get()
+
+        if (shouldSend) {
+            passwordResetEmailSender.sendCode(user.getString("correo") ?: normalizedEmail, code)
+        }
+        return PASSWORD_RESET_REQUEST_RESPONSE
+    }
+
+    fun confirmPasswordReset(email: String, code: String, newPassword: String): MensajeResponse {
+        val normalizedEmail = normalizeEmail(email)
+        require(EMAIL_REGEX.matches(normalizedEmail)) { "Ingresa un correo electrónico válido." }
+        require(newPassword.length in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH) {
+            "La contraseña debe tener entre 8 y 128 caracteres."
+        }
+
+        val resetRef = db.collection(PASSWORD_RESETS).document(sha256Hex(normalizedEmail))
+        val result = db.runTransaction { transaction ->
+            val reset = transaction.get(resetRef).get()
+            val attempts = reset.getLong("attempts") ?: 0L
+            val expiresAt = reset.getLong("expiresAt") ?: 0L
+            val storedCodeHash = reset.getString("codeHash")
+            if (
+                !reset.exists() ||
+                expiresAt <= System.currentTimeMillis() ||
+                attempts >= MAX_RESET_CODE_ATTEMPTS ||
+                storedCodeHash == null
+            ) {
+                if (reset.exists()) transaction.delete(resetRef)
+                PasswordResetResult.INVALID
+            } else if (!PasswordHasher.verify(code.trim(), storedCodeHash)) {
+                transaction.update(resetRef, "attempts", attempts + 1)
+                PasswordResetResult.INVALID
+            } else {
+                val userId = reset.getString("userId")
+                if (userId.isNullOrBlank()) {
+                    transaction.delete(resetRef)
+                    PasswordResetResult.INVALID
+                } else {
+                    val userRef = db.collection(USERS).document(userId)
+                    val user = transaction.get(userRef).get()
+                    if (!user.exists()) {
+                        transaction.delete(resetRef)
+                        PasswordResetResult.INVALID
+                    } else {
+                        val sessions = transaction.get(
+                            db.collection(SESSIONS).whereEqualTo("usuarioId", userId),
+                        ).get()
+                        val newPasswordHash = PasswordHasher.hash(newPassword)
+                        transaction.update(userRef, "passwordHash", newPasswordHash)
+                        sessions.documents.forEach { transaction.delete(it.reference) }
+                        transaction.delete(resetRef)
+                        PasswordResetResult.COMPLETED
+                    }
+                }
+            }
+        }.get()
+
+        if (result != PasswordResetResult.COMPLETED) {
+            throw IllegalArgumentException("El código es incorrecto, venció o ya fue utilizado.")
+        }
+        return MensajeResponse("La contraseña se actualizó. Inicia sesión con la nueva contraseña.")
     }
 
     fun currentUser(token: String): UsuarioDto = authenticatedUser(token).let { (id, data) -> userDto(id, data) }
@@ -559,11 +674,12 @@ class FirestoreRepository(private val db: Firestore) {
                     "rol" to "estudiante",
                     "detalle" to "Estudiante Pregrado",
                 )
+                val userRef = db.collection(USERS).document(student.id)
                 if (student.canLogin) {
-                    account["passwordHash"] = sha256Hex(DEMO_PASSWORD)
+                    account["passwordHash"] = demoPasswordHash
                 }
                 transaction.set(
-                    db.collection(USERS).document(student.id),
+                    userRef,
                     account,
                     SetOptions.merge(),
                 )
@@ -585,7 +701,7 @@ class FirestoreRepository(private val db: Firestore) {
                     "correo" to "armando.casas@konradlorenz.edu.co",
                     "rol" to "docente",
                     "detalle" to "Facultad de Matemáticas e Ingeniería",
-                    "passwordHash" to sha256Hex(DEMO_PASSWORD),
+                    "passwordHash" to demoPasswordHash,
                 ),
                 SetOptions.merge(),
             )
@@ -660,6 +776,8 @@ class FirestoreRepository(private val db: Firestore) {
         "estado" to estado,
         "registradoEn" to registradoEn,
     )
+
+    private fun normalizeEmail(email: String): String = email.trim().lowercase()
 
     private fun authenticatedUser(token: String): Pair<String, Map<String, Any?>> {
         val session = db.collection(SESSIONS).document(token).get().get()
@@ -772,6 +890,24 @@ class FirestoreRepository(private val db: Firestore) {
         if (user.string("rol") != "administrativo" && meeting.string("docenteId") != userId) {
             throw ForbiddenException("Esta reunión no está a tu cargo.")
         }
+    }
+
+    private enum class PasswordResetResult {
+        COMPLETED,
+        INVALID,
+    }
+
+    private companion object {
+        const val RESET_CODE_TTL_MS = 10 * 60 * 1000L
+        const val RESET_REQUEST_COOLDOWN_MS = 60 * 1000L
+        const val MAX_RESET_CODE_ATTEMPTS = 5L
+        const val MIN_PASSWORD_LENGTH = 8
+        const val MAX_PASSWORD_LENGTH = 128
+        val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+        val PASSWORD_RESET_REQUEST_RESPONSE = MensajeResponse(
+            "Si la cuenta puede iniciar sesión y no hay una solicitud reciente, enviaremos un código. " +
+                "Revisa tu correo; el código vence en 10 minutos.",
+        )
     }
 
     private fun isStaff(user: Map<String, Any?>): Boolean =

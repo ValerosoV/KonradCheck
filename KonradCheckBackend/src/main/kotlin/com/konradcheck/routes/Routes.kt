@@ -1,9 +1,11 @@
 package com.konradcheck.routes
 
 import com.konradcheck.data.FirestoreRepository
+import com.konradcheck.models.ConfirmarRecuperacionRequest
 import com.konradcheck.models.EscanearRequest
 import com.konradcheck.models.LoginRequest
 import com.konradcheck.models.ProgramarReunionRequest
+import com.konradcheck.models.SolicitarRecuperacionRequest
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -25,6 +27,22 @@ fun Application.configureRoutes(repository: FirestoreRepository) {
         }
 
         route("/auth") {
+            post("/password-reset/request") {
+                val request = call.receive<SolicitarRecuperacionRequest>()
+                call.respond(blockingCall { repository.requestPasswordReset(request.correo) })
+            }
+            post("/password-reset/confirm") {
+                val request = call.receive<ConfirmarRecuperacionRequest>()
+                call.respond(
+                    blockingCall {
+                        repository.confirmPasswordReset(
+                            request.correo,
+                            request.codigo,
+                            request.nuevaContrasena,
+                        )
+                    },
+                )
+            }
             post("/login") {
                 val request = call.receive<LoginRequest>()
                 call.respond(blockingCall { repository.login(request) })
