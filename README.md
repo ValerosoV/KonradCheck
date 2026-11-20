@@ -2,7 +2,7 @@
 
 Aplicación móvil institucional para registrar la asistencia a clases y reuniones de la Fundación Universitaria Konrad Lorenz. Funciona como la boleta digital de un concierto: cada estudiante tiene un ticket por clase, su QR cambia cada 5 segundos y solo se registra quien lo muestra en vivo desde la app ante el escáner del salón.
 
-> **Estado del proyecto:** frontend funcional con datos de prueba. Aún no hay backend: todos los datos son ficticios y se guardan en cada dispositivo.
+> **Estado del proyecto:** frontend móvil con backend Kotlin/Ktor y persistencia en Cloud Firestore. Las cuentas demo preparan automáticamente los datos necesarios para probar los flujos principales.
 
 ## Equipo
 
@@ -17,16 +17,34 @@ Aplicación móvil institucional para registrar la asistencia a clases y reunion
 
 - Node.js 22.13+, 24.3+ o 26+, según lo exige Expo SDK 58. Las versiones impares, como 23 y 25, no son compatibles.
 - npm, incluido con Node.js.
+- JDK 21 para el backend.
+- Una cuenta de servicio local con acceso a Firestore.
 - Para el iPhone: Expo Go de la App Store y una cuenta gratuita de Expo.
 
 ## Instalar y ejecutar
 
 ```bash
 git clone <URL_DEL_REPOSITORIO>
-cd KonradCheck/KonradCheckApp
+cd KonradCheck
+```
+
+En `KonradCheckBackend`, copia el JSON de cuenta de servicio como `serviceAccountKey.json` (el archivo se ignora en Git) e inicia el backend:
+
+```powershell
+cd KonradCheckBackend
+.\gradlew.bat run
+```
+
+En otra terminal, configura y ejecuta la app:
+
+```powershell
+cd KonradCheckApp
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 npm install
 npm start
 ```
+
+En un dispositivo físico, `EXPO_PUBLIC_API_URL` debe usar la IP local del computador en lugar de `localhost`.
 
 Para abrirla en el navegador usa `npm run web` y el modo responsive para verla como celular.
 
@@ -47,29 +65,26 @@ Para abrirla en el navegador usa `npm run web` y el modo responsive para verla c
 
 ## Cuentas de prueba
 
-La contraseña de todas es `Konrad123`. En la pantalla de inicio hay botones que llenan las dos primeras.
+La contraseña de ambas cuentas de acceso demo es `Konrad123`. Los botones Estudiante y Docente consultan/preparan las cuentas y reuniones en Firestore antes de rellenar el formulario. Los otros tres estudiantes de la plantilla CSV son asistentes demo, no cuentas de acceso.
 
 | Rol | Correo |
 | --- | --- |
 | Estudiante | `david.gomez@konradlorenz.edu.co` |
 | Docente | `armando.casas@konradlorenz.edu.co` |
-| Estudiante (segundo) | `maria.restrepo@konradlorenz.edu.co` |
-| Administrativo (ve todas las reuniones) | `paula.medina@konradlorenz.edu.co` |
 
 ## Cómo probar el flujo
 
 **En un solo iPhone:** entra como docente, ve a **Escanear QR** y despliega **Modo demostración**. «Ticket» envía un código vigente y «Captura» uno vencido, que se rechaza. Al cerrar sesión y entrar como ese estudiante, ya aparece registrado.
 
-**Con dos dispositivos:** uno muestra el ticket como estudiante y el otro lo escanea como docente. El escáner valida el QR y registra la asistencia, pero **solo en el dispositivo que escanea**: sin backend, el celular del estudiante no se entera y sigue mostrando su ticket.
+**Con dos dispositivos:** uno muestra el ticket como estudiante y el otro lo escanea como docente. Ambos deben alcanzar el backend iniciado en el computador; el registro queda persistido en Firestore y se refleja al actualizar las pantallas.
 
 **En un mismo navegador:** abre dos pestañas, una como estudiante y otra como docente. Comparten los datos, así que el ticket cambia solo a «¡Asistencia registrada!».
 
 ### Datos de prueba
 
 - Se crean alrededor de la hora actual para que siempre haya una clase en curso.
-- Para empezar de cero: **Perfil → Reiniciar datos de prueba**.
-- Si al abrir la app ya no hay ninguna clase en curso, se regeneran solos y se pierde lo que hayas creado.
-- El código para recuperar la contraseña aparece en pantalla, porque no se envían correos.
+- Los botones de cuenta demo vuelven a asegurar las mismas reuniones sin duplicar registros ni borrar asistencias.
+- El reinicio remoto, la recuperación y el cambio de contraseña están pendientes en esta etapa.
 
 ## Cómo funciona el ticket
 
@@ -78,7 +93,7 @@ La contraseña de todas es `Konrad123`. En la pantalla de inicio hay botones que
 3. El escáner comprueba la firma, la reunión, la vigencia (máximo 10 s), el horario y que no se haya usado.
 4. En los primeros 15 minutos queda **Presente** y después **Tardanza**. Quien no se registra queda **Pendiente** y pasa a **Ausente** al terminar la reunión.
 
-Las validaciones corren hoy en el dispositivo, en `services/apiSimulada.js`, y los secretos de prueba se derivan de los ids. Es suficiente para probar la interfaz, no para evitar fraudes reales: esa decisión debe pasar al backend.
+Las validaciones y el registro de asistencia se realizan en el backend. Esta versión está pensada para demostraciones académicas locales, no para producción.
 
 ### Protección contra capturas
 
@@ -90,30 +105,32 @@ Las validaciones corren hoy en el dispositivo, en `services/apiSimulada.js`, y l
 | Código oculto con atajos de captura e impresión | No aplica | Sí, como disuasión |
 | Franja animada y reloj para reconocer una imagen estática | Sí | Sí |
 
-## Conectar el backend más adelante
+## Backend y datos demo
 
-Las pantallas solo usan `authService`, `reunionesService` y `asistenciaService`. Para conectar la API real hay que cambiar esos servicios y eliminar `services/apiSimulada.js`, `services/almacenLocal*.js` y `data/datosDemo.js`, sin tocar las pantallas.
+El backend y los pasos de instalación están en [KonradCheckBackend/README.md](KonradCheckBackend/README.md). La app solo necesita una URL en `KonradCheckApp/.env` (`EXPO_PUBLIC_API_URL`); en web/emulador local puede ser `http://localhost:8080`, y en un teléfono físico debe usarse la IP del computador en la red local.
+
+La inicialización demo usa IDs estables, prepara las cuatro personas de la plantilla CSV y una cuenta de acceso por rol. Repetirla no duplica reuniones ni inscripciones y conserva asistencias registradas. El reinicio remoto, la recuperación y el cambio de contraseña quedan pendientes.
 
 ## Tecnologías
 
-JavaScript, React Native, Expo SDK 58, React Navigation, `expo-camera`, `expo-screen-capture` y `expo-secure-store`.
+JavaScript, React Native, Expo SDK 58, Kotlin, Ktor, Firebase Admin SDK, Cloud Firestore, React Navigation, `expo-camera`, `expo-screen-capture` y `expo-secure-store`.
 
 ## Estructura del proyecto
 
 ```text
-KonradCheckApp/
-├── App.js                # Navegación según el rol de la sesión
-├── context/              # Sesión del usuario
-├── data/                 # Datos de prueba
-├── hooks/                # Datos en vivo y protección de capturas
-├── services/             # API simulada, generación del QR, CSV y fechas
-├── screens/
-│   ├── components/       # Íconos, barra inferior y etiquetas de estado
-│   ├── noSesion/         # Inicio y recuperación de contraseña
-│   └── conSesion/
-│       ├── Estudiante/   # Clases, Mi QR e historial
-│       └── Personal/     # Reuniones, programación, escáner y reportes
-└── docs/                 # Plantilla CSV de asistentes
+.
+├── KonradCheckApp/
+│   ├── App.js                # Navegación según el rol de la sesión
+│   ├── context/              # Sesión del usuario
+│   ├── data/                 # Datos de prueba legado
+│   ├── hooks/                # Datos en vivo y protección de capturas
+│   ├── services/             # API del backend, generación del QR, CSV y fechas
+│   ├── screens/
+│   │   ├── components/       # Íconos, barra inferior y etiquetas de estado
+│   │   ├── noSesion/         # Inicio y recuperación de contraseña
+│   │   └── conSesion/        # Estudiante, personal y perfil
+│   └── docs/                 # Plantilla CSV de asistentes
+└── KonradCheckBackend/       # API Kotlin/Ktor y persistencia Firestore
 ```
 
 ## Problemas comunes

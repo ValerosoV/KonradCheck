@@ -10,7 +10,6 @@ import {
 import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import { reiniciarDatosDemo } from '../../services/apiSimulada';
 import {
     RefreshIcon,
     KeyIcon,
@@ -41,9 +40,8 @@ const HOJAS = {
     reiniciar: {
         titulo: 'Reiniciar datos de prueba',
         parrafos: [
-            'Se borran las asistencias registradas y las reuniones que hayas creado, y se vuelve a crear una clase en curso. Se cerrará tu sesión.',
+            'El reinicio remoto de los datos de prueba estará disponible en una siguiente etapa. Tus reuniones y asistencias no se han modificado.',
         ],
-        accion: 'Reiniciar datos',
     },
 };
 
@@ -86,13 +84,6 @@ export default function Perfil({ navigation }) {
             onPress: () => setHoja(HOJAS.reiniciar),
         },
     ];
-
-    // Se sale primero para que ninguna pantalla consulte datos sin sesion.
-    const reiniciarDatos = async () => {
-        setHoja(null);
-        await salir();
-        reiniciarDatosDemo();
-    };
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -150,13 +141,8 @@ export default function Perfil({ navigation }) {
                         {hoja?.parrafos.map((parrafo) => (
                             <Text key={parrafo} style={styles.hojaTexto}>{parrafo}</Text>
                         ))}
-                        {hoja?.accion && (
-                            <Pressable style={styles.hojaBotonPeligro} onPress={reiniciarDatos}>
-                                <Text style={styles.hojaBotonPeligroTexto}>{hoja.accion}</Text>
-                            </Pressable>
-                        )}
                         <Pressable style={styles.hojaBoton} onPress={() => setHoja(null)}>
-                            <Text style={styles.hojaBotonTexto}>{hoja?.accion ? 'Cancelar' : 'Entendido'}</Text>
+                            <Text style={styles.hojaBotonTexto}>Entendido</Text>
                         </Pressable>
                     </Pressable>
                 </Pressable>
@@ -294,18 +280,6 @@ const styles = StyleSheet.create({
         color: '#667085',
         fontSize: 14,
         lineHeight: 21,
-    },
-    hojaBotonPeligro: {
-        alignItems: 'center',
-        backgroundColor: '#FBE1DE',
-        borderRadius: 12,
-        marginTop: 8,
-        paddingVertical: 14,
-    },
-    hojaBotonPeligroTexto: {
-        color: '#C0392B',
-        fontSize: 15,
-        fontWeight: '700',
     },
     hojaBoton: {
         alignItems: 'center',

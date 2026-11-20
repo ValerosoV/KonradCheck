@@ -12,12 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-
-const CLAVE_DEMO = 'Konrad123';
+import { prepararCuentaDemo } from '../../services/authService';
 
 const CUENTAS_DEMO = [
-    { etiqueta: 'Estudiante', correo: 'david.gomez@konradlorenz.edu.co' },
-    { etiqueta: 'Docente', correo: 'armando.casas@konradlorenz.edu.co' },
+    { etiqueta: 'Estudiante', tipo: 'estudiante' },
+    { etiqueta: 'Docente', tipo: 'docente' },
 ];
 
 export default function Login({ navigation }) {
@@ -26,6 +25,8 @@ export default function Login({ navigation }) {
     const [contrasena, setContrasena] = useState('');
     const [error, setError] = useState(null);
     const [enviando, setEnviando] = useState(false);
+    const [cargandoDemo, setCargandoDemo] = useState(false);
+    const [demoActual, setDemoActual] = useState(null);
 
     const handleLogin = async () => {
         if (!correo.trim() || !contrasena) {
@@ -43,10 +44,23 @@ export default function Login({ navigation }) {
         }
     };
 
-    const usarCuentaDemo = (cuenta) => {
-        setCorreo(cuenta.correo);
-        setContrasena(CLAVE_DEMO);
+    const usarCuentaDemo = async (cuenta) => {
         setError(null);
+        setDemoActual(cuenta.tipo);
+        setCargandoDemo(true);
+        try {
+            const perfil = await prepararCuentaDemo(cuenta.tipo);
+            if (!perfil?.correo || !perfil?.contrasena) {
+                throw new Error('El backend no confirmó las credenciales de demostración.');
+            }
+            setCorreo(perfil.correo);
+            setContrasena(perfil.contrasena);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setCargandoDemo(false);
+            setDemoActual(null);
+        }
     };
 
     const mensaje = error ?? aviso;
@@ -108,7 +122,11 @@ export default function Login({ navigation }) {
 
                         {mensaje && <Text style={styles.error}>{mensaje}</Text>}
 
-                        <Pressable style={styles.button} onPress={handleLogin} disabled={enviando}>
+                        <Pressable
+                            style={styles.button}
+                            onPress={handleLogin}
+                            disabled={enviando || cargandoDemo}
+                        >
                             {enviando ? (
                                 <ActivityIndicator color="#FFFFFF" />
                             ) : (
@@ -129,11 +147,14 @@ export default function Login({ navigation }) {
                             <View style={styles.demoRow}>
                                 {CUENTAS_DEMO.map((cuenta) => (
                                     <Pressable
-                                        key={cuenta.correo}
+                                        key={cuenta.tipo}
                                         style={styles.demoButton}
                                         onPress={() => usarCuentaDemo(cuenta)}
+                                        disabled={cargandoDemo || enviando}
                                     >
-                                        <Text style={styles.demoButtonText}>{cuenta.etiqueta}</Text>
+                                        <Text style={styles.demoButtonText}>
+                                            {demoActual === cuenta.tipo ? 'Cargando...' : cuenta.etiqueta}
+                                        </Text>
                                     </Pressable>
                                 ))}
                             </View>

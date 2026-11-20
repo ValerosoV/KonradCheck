@@ -1,20 +1,27 @@
 import qrcode from 'qrcode-generator';
-import * as api from './apiSimulada';
+import { sha256 } from 'js-sha256';
+import * as api from './apiRemota';
 
 // El ticket funciona como en un concierto: la app firma un codigo nuevo cada 5 s con
 // el secreto del ticket, y una captura deja de servir en cuanto cambia el paso.
 
 const PASOS_ATRAS_CAPTURA = 6;
 
-export { escanearCodigo, obtenerHistorial } from './apiSimulada';
+export { escanearCodigo, obtenerHistorial } from './apiRemota';
 
 export async function obtenerTicket(reunionId) {
+    const solicitudIniciada = Date.now();
     const datos = await api.obtenerTicket(reunionId);
-    return { ...datos, desfaseMs: 0 };
+    const solicitudTerminada = Date.now();
+    return {
+        ...datos,
+        desfaseMs: datos.ahora - ((solicitudIniciada + solicitudTerminada) / 2),
+    };
 }
 
 export function generarCodigo(ticket, paso) {
-    return `KC1.${ticket.id}.${paso}.${api.firmarPaso(ticket.secreto, ticket.id, paso)}`;
+    const firma = sha256.hmac(ticket.secreto, `${ticket.id}.${paso}`).slice(0, 16);
+    return `KC1.${ticket.id}.${paso}.${firma}`;
 }
 
 export function matrizQr(texto) {
@@ -41,7 +48,7 @@ export async function obtenerCodigosDemo(reunionId) {
     return pendientes.map((ticket) => ({
         nombre: ticket.nombre,
         codigo: ticket.codigo,
-        codigoVigente: generarCodigo(ticket, paso),
-        codigoVencido: generarCodigo(ticket, paso - PASOS_ATRAS_CAPTURA),
+        codigoVigente: generarCodigo({ id: ticket.id, secreto: ticket.secreto }, paso),
+        codigoVencido: generarCodigo({ id: ticket.id, secreto: ticket.secreto }, paso - PASOS_ATRAS_CAPTURA),
     }));
 }
