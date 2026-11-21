@@ -1,61 +1,36 @@
 # KonradCheck Backend
 
-Backend Kotlin/Ktor para la app, conectado a Cloud Firestore por Firebase Admin SDK.
+API REST construida con Kotlin y Ktor. Usa Firebase Admin SDK para conectarse a Cloud Firestore con una cuenta de servicio.
 
 ## Requisitos
 
-- JDK 21
-- Una cuenta de servicio local con acceso a Firestore
+- JDK 21.
+- Cuenta de servicio de Firebase con permisos sobre Firestore.
+- JSON de cuenta de servicio disponible localmente.
 
-## Preparar y ejecutar en Windows
+## Ejecutar en Windows
 
-1. Copia el JSON de cuenta de servicio a `KonradCheckBackend/serviceAccountKey.json`. El archivo se ignora en Git y no debe compartirse.
-2. Desde esta carpeta, ejecuta:
+Coloca el JSON en `KonradCheckBackend/serviceAccountKey.json`:
 
-   ```powershell
-   .\gradlew.bat run
-   ```
+```powershell
+Copy-Item <RUTA_JSON> .\serviceAccountKey.json
+.\gradlew.bat run
+```
 
-El servidor escucha en `0.0.0.0:8080` para aceptar conexiones de la máquina local y de la red Wi-Fi. Para probarlo desde un dispositivo físico, permite el puerto en la red local y usa la IP del computador en la configuración de la app.
+El servidor escucha en `0.0.0.0:8080`. El archivo de credenciales está ignorado por Git y no debe compartirse.
 
-El único ajuste opcional del backend es `FIREBASE_SERVICE_ACCOUNT_PATH`, si el JSON está en una ubicación distinta. El proyecto de Firebase se obtiene de las credenciales.
+También puede configurarse otra ruta:
 
-## Colecciones y relaciones
+```powershell
+$env:FIREBASE_SERVICE_ACCOUNT_PATH = "C:\ruta\serviceAccountKey.json"
+.\gradlew.bat run
+```
 
-Firestore guarda referencias por ID y el backend valida los documentos enlazados:
+El proyecto de Firebase se toma de las credenciales de la cuenta de servicio.
 
-| Colección | Contenido y relación |
-| --- | --- |
-| `usuarios` | Perfil común, correo, rol y hash de contraseña para las cuentas con acceso. |
-| `estudiantes` | Perfil 1:1 con `usuarios` (`usuarioId`); guarda `codigo` y `programaId`. Un estudiante puede no tener inscripciones. |
-| `personal` | Perfil 1:1 con `usuarios`; especifica tipo docente/administrativo y área. |
-| `programas` | Carrera/programa con varias asignaturas y estudiantes (1:N). |
-| `asignaturas` | Pertenece a un programa (N:1); una reunión tipo clase la referencia. |
-| `reuniones` | Cada evento tiene un `docenteId`; una clase referencia asignatura/programa. Una reunión general no exige asignatura. |
-| `inscripciones` | Une estudiantes y reuniones (N:M); incluye ticket, estado y hora de asistencia. La clave determinista evita duplicar la pareja. |
-| `sesiones` | Token de la sesión emitida al iniciar sesión y `usuarioId`. |
-| `passwordResets` | Retos temporales de recuperación, identificados por correo hasheado; almacena el hash del código, intentos y vencimiento, nunca el código en claro. |
+## Configuración de correo
 
-Así, una clase siempre tiene docente, una asistencia siempre apunta a una reunión y estudiante existentes, y las filas de la plantilla CSV se resuelven a perfiles existentes antes de crear inscripciones.
-
-## API principal
-
-- `POST /demo/cuentas/estudiante` o `POST /demo/cuentas/docente`: asegura los datos demo y devuelve las credenciales de la cuenta pedida.
-- `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`
-- `POST /auth/password-reset/request`: solicita el envío de un código de recuperación al correo asociado.
-- `POST /auth/password-reset/confirm`: valida el código y establece una nueva contraseña.
-- `GET /reuniones`, `POST /reuniones`, `GET /reuniones/{id}/reporte`
-- `GET /reuniones/{id}/ticket`, `POST /reuniones/{id}/asistencias/escanear`
-- `GET /reuniones/{id}/tickets-pendientes`
-- `GET /estudiantes`, `GET /estudiantes/me/historial`
-
-La inicialización demo usa IDs fijos: repetirla no duplica personas, reuniones ni inscripciones y conserva las asistencias ya escaneadas. Al pedir una cuenta demo, su contraseña se restablece a `Konrad123`; para probar recuperación, no vuelvas a pulsar el botón de cuenta demo antes de iniciar sesión con la nueva contraseña. La hora de la reunión activa se actualiza al inicio de la hora local vigente y termina dos horas después.
-
-## Recuperación de contraseña
-
-El flujo envía por correo un código numérico de un solo uso. Vence en 10 minutos, permite hasta cinco intentos y limita los reenvíos por correo a uno por minuto. Al cambiar la contraseña se invalidan las sesiones existentes. La API devuelve el mismo mensaje para cuentas que existen y que no existen.
-
-El envío usa la API de correo transaccional de Brevo. Su plan gratuito se anuncia sin tarjeta de crédito, sujeto a las condiciones y límites vigentes del proveedor. Crea una cuenta, verifica una dirección de remitente y configura estas variables **solo en el entorno del backend**:
+La recuperación de contraseña usa la API transaccional de Brevo. Sin configuración, una solicitud válida no podrá entregar el código.
 
 ```powershell
 $env:BREVO_API_KEY = "<clave API>"
@@ -64,6 +39,105 @@ $env:BREVO_SENDER_NAME = "KonradCheck"
 .\gradlew.bat run
 ```
 
-La app no necesita ni recibe la clave de Brevo. No guardes las credenciales en el repositorio ni las compartas. El hash de las contraseñas nuevas usa PBKDF2-HMAC-SHA256; los hashes SHA-256 existentes se aceptan durante el inicio de sesión y se actualizan al formato nuevo después de autenticar correctamente.
+`BREVO_SENDER_NAME` es opcional. Nunca guardes claves o credenciales en el repositorio.
 
-Esta versión es para pruebas académicas locales, no para producción. El cambio de contraseña desde una sesión activa y el reinicio remoto de datos demo siguen pendientes.
+## Colecciones de Firestore
+
+| Colección | Contenido |
+| --- | --- |
+| `usuarios` | Nombre, correo, rol, área y hash de contraseña. |
+| `estudiantes` | Perfil asociado a `usuarios`; contiene código y programa. |
+| `personal` | Perfil asociado a `usuarios`; contiene tipo y área laboral. |
+| `programas` | Carreras o programas académicos. |
+| `asignaturas` | Materias pertenecientes a un programa. |
+| `reuniones` | Clases o reuniones con docente, horario y ubicación. |
+| `inscripciones` | Relación estudiante-reunión, ticket y estado de asistencia. |
+| `sesiones` | Token activo y usuario asociado. |
+| `passwordResets` | Solicitudes de recuperación: correo hasheado, hash del código, vencimiento e intentos. |
+
+Las operaciones importantes validan las referencias, roles y estados antes de modificar los datos.
+
+## API principal
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/health` | Comprobación de disponibilidad. |
+| `POST` | `/demo/cuentas/{estudiante\|docente}` | Prepara datos demo y devuelve credenciales. |
+| `POST` | `/auth/login` | Inicia sesión y crea un token. |
+| `GET` | `/auth/me` | Devuelve el usuario asociado al token. |
+| `POST` | `/auth/logout` | Invalida el token actual. |
+| `POST` | `/auth/password-reset/request` | Solicita un código de recuperación. |
+| `POST` | `/auth/password-reset/confirm` | Valida el código y cambia la contraseña. |
+| `GET` | `/reuniones` | Lista reuniones según el rol. |
+| `POST` | `/reuniones` | Programa una reunión. |
+| `GET` | `/reuniones/{id}/reporte` | Devuelve asistencia y resumen de una reunión. |
+| `GET` | `/reuniones/{id}/ticket` | Obtiene el secreto y estado del ticket del estudiante. |
+| `POST` | `/reuniones/{id}/asistencias/escanear` | Valida y registra un código QR. |
+| `GET` | `/reuniones/{id}/tickets-pendientes` | Lista tickets disponibles para demostración. |
+| `GET` | `/estudiantes` | Lista estudiantes disponibles para personal. |
+| `GET` | `/estudiantes/me/historial` | Devuelve el historial del estudiante autenticado. |
+
+Todas las rutas privadas esperan `Authorization: Bearer <token>`. Los errores de entrada, autenticación, permisos y registros inexistentes usan respuestas JSON y códigos HTTP adecuados.
+
+## Datos demo
+
+La inicialización usa IDs deterministas y prepara perfiles, docentes, estudiantes y reuniones. Ejecutarla varias veces no duplica inscripciones ni elimina asistencias existentes.
+
+- La reunión activa se desplaza a la hora local actual y dura dos horas.
+- Su ventana de ticket abre 15 minutos antes del inicio.
+- La contraseña demo es `Konrad123`.
+- La ruta demo restablece la contraseña de la cuenta solicitada. Después de usarla, no debe volver a ejecutarse si ya se cambió la contraseña por recuperación.
+
+## Recuperación de contraseña
+
+El flujo envía un código numérico de un solo uso:
+
+- Vencimiento: 10 minutos.
+- Intentos máximos: 5.
+- Reenvío limitado a una solicitud por minuto y correo.
+- Al restablecer la contraseña se eliminan las sesiones existentes.
+- Las solicitudes usan una respuesta uniforme para cuentas existentes y no existentes.
+
+Las contraseñas nuevas se almacenan con PBKDF2-HMAC-SHA256. Los hashes legacy SHA-256 siguen funcionando en el inicio de sesión y se migran automáticamente al autenticarse correctamente.
+
+## Validación de asistencia
+
+El ticket tiene este formato:
+
+```text
+KC1.<ticket>.<paso>.<HMAC-SHA256>
+```
+
+El escaneo verifica:
+
+1. Token de sesión y permisos del usuario.
+2. Existencia de reunión e inscripción.
+3. Validez de la firma HMAC.
+4. Pasos dentro de la ventana temporal máxima de 10 segundos.
+5. Apertura y cierre de la ventana de escaneo.
+6. Uso previo del ticket.
+
+Las reglas clasifican la asistencia como presente durante los primeros 15 minutos, tardanza después y ausente al finalizar si no existe registro.
+
+## Pruebas
+
+Desde esta carpeta:
+
+```powershell
+.\gradlew.bat test
+```
+
+Las pruebas cubren:
+
+- Ventana actual de reuniones.
+- Apertura y cierre de la ventana de tickets.
+- Generación determinista de IDs de inscripción.
+- Derivación de estados de asistencia.
+- Hash, verificación y migración de contraseñas.
+
+## Limitaciones conocidas
+
+- No existe un endpoint activo para cambiar contraseña desde una sesión iniciada; la pantalla de la app muestra un aviso pendiente.
+- No existe reinicio remoto de datos demo.
+- CORS está habilitado para cualquier origen.
+- La configuración está orientada a demostraciones locales y académicas, no a producción.

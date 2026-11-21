@@ -1,8 +1,17 @@
 # KonradCheck
 
-Aplicación móvil institucional para registrar la asistencia a clases y reuniones de la Fundación Universitaria Konrad Lorenz. Funciona como la boleta digital de un concierto: cada estudiante tiene un ticket por clase, su QR cambia cada 5 segundos y solo se registra quien lo muestra en vivo desde la app ante el escáner del salón.
+KonradCheck es una aplicación móvil institucional para registrar la asistencia a clases y reuniones de la Fundación Universitaria Konrad Lorenz. El sistema combina una app React Native con Expo, un backend Kotlin/Ktor y Cloud Firestore.
 
-> **Estado del proyecto:** frontend móvil con backend Kotlin/Ktor y persistencia en Cloud Firestore. Las cuentas demo preparan automáticamente los datos necesarios para probar los flujos principales.
+Cada estudiante dispone de un ticket temporal asociado a una reunión. La app genera un código QR rotativo y el personal docente o administrativo lo valida con la cámara. Las reglas de horario, vigencia y registro se verifican en el backend.
+
+## Estado del proyecto
+
+- Desarrollo académico para entorno local o de pruebas.
+- Roles de estudiante y personal.
+- Datos demo idempotentes en Firestore.
+- Recuperación de contraseña por correo electrónico.
+- Lectura de QR, reportes e historial de asistencia.
+- Cambio de contraseña desde una sesión activa pendiente en la interfaz.
 
 ## Equipo
 
@@ -13,132 +22,235 @@ Aplicación móvil institucional para registrar la asistencia a clases y reunion
 **Asignatura:** Desarrollo de Aplicaciones Móviles  
 **Proyecto:** KonradCheck — Grupo 8
 
+## Tecnologías
+
+| Capa | Tecnologías |
+| --- | --- |
+| Aplicación móvil | React Native, Expo SDK 58, React Navigation |
+| Cámara y almacenamiento | `expo-camera`, `expo-screen-capture`, `expo-secure-store`, `expo-sharing` |
+| Backend | Kotlin 2.0, Ktor 3.0, Netty |
+| Datos | Firebase Admin SDK y Cloud Firestore |
+| Código QR | `qrcode-generator`, `js-sha256` |
+| Recuperación por correo | API transaccional de Brevo |
+| Pruebas backend | Kotlin Test y JUnit 5 |
+
+## Funcionalidades
+
+### Estudiante
+
+- Inicio y cierre de sesión.
+- Consulta de reuniones disponibles.
+- Visualización de un ticket QR rotativo.
+- Consulta del historial de asistencias.
+- Recuperación de contraseña por correo.
+- Consulta de perfil.
+
+### Personal docente o administrativo
+
+- Escaneo de tickets de asistencia.
+- Vista de reportes por reunión.
+- Consulta de estudiantes.
+- Programación de reuniones y asignación de asistentes.
+- Consulta de reuniones y perfil.
+
+## Arquitectura
+
+```text
+KonradCheckApp  ->  API REST Kotlin/Ktor  ->  Cloud Firestore
+     |                                            |
+     |-- Expo/React Native                       |-- usuarios
+     |-- Sesión segura con token                 |-- estudiantes/personal
+     |-- QR firmado por la app                   |-- reuniones/inscripciones
+     +-- Cámara en dispositivos compatibles      +-- sesiones/passwordResets
+```
+
+El teléfono conserva el token de sesión mediante almacenamiento seguro. El backend valida el token y los permisos para cada operación. Firestore es la fuente de verdad de perfiles, reuniones e asistencias.
+
 ## Requisitos previos
 
-- Node.js 22.13+, 24.3+ o 26+, según lo exige Expo SDK 58. Las versiones impares, como 23 y 25, no son compatibles.
-- npm, incluido con Node.js.
-- JDK 21 para el backend.
-- Una cuenta de servicio local con acceso a Firestore.
-- Para el iPhone: Expo Go de la App Store y una cuenta gratuita de Expo.
+- Node.js compatible con Expo SDK 58: 22.13+, 24.3+ o 26+. No usar versiones impares como 23 o 25.
+- npm.
+- JDK 21.
+- Cuenta de Firebase con una cuenta de servicio que tenga acceso a Firestore.
+- Para ejecutar en iPhone: Expo Go y una cuenta de Expo.
 
-## Instalar y ejecutar
+## Configuración inicial
 
-```bash
+```powershell
 git clone <URL_DEL_REPOSITORIO>
 cd KonradCheck
 ```
 
-En `KonradCheckBackend`, copia el JSON de cuenta de servicio como `serviceAccountKey.json` (el archivo se ignora en Git) e inicia el backend:
+### 1. Configurar el backend
+
+Copia el JSON de la cuenta de servicio localmente:
 
 ```powershell
 cd KonradCheckBackend
+Copy-Item <RUTA_JSON> .\serviceAccountKey.json
 .\gradlew.bat run
 ```
 
-En otra terminal, configura y ejecuta la app:
+El archivo `serviceAccountKey.json` está ignorado por Git y no debe compartirse. El servidor queda disponible en `http://localhost:8080`.
+
+Para usar una ruta distinta:
+
+```powershell
+$env:FIREBASE_SERVICE_ACCOUNT_PATH = "C:\ruta\serviceAccountKey.json"
+```
+
+Consulta [KonradCheckBackend/README.md](KonradCheckBackend/README.md) para las variables opcionales de correo, la API y el modelo de datos.
+
+### 2. Configurar la aplicación
+
+En otra terminal:
 
 ```powershell
 cd KonradCheckApp
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+Copy-Item .env.example .env
 npm install
 npm start
 ```
 
-En un dispositivo físico, `EXPO_PUBLIC_API_URL` debe usar la IP local del computador en lugar de `localhost`.
+El valor predeterminado de `KonradCheckApp/.env` es:
 
-Para abrirla en el navegador usa `npm run web` y el modo responsive para verla como celular.
+```dotenv
+EXPO_PUBLIC_API_URL=http://localhost:8080
+```
 
-## Ver la app en un iPhone
+En un dispositivo físico, reemplaza `localhost` por la dirección IPv4 del computador en la misma red Wi-Fi:
 
-1. Instala **Expo Go** desde la App Store y crea una cuenta gratuita en [expo.dev/signup](https://expo.dev/signup).
-2. En el computador, dentro de `KonradCheckApp`, inicia sesión y arranca el proyecto:
+```dotenv
+EXPO_PUBLIC_API_URL=http://192.168.1.25:8080
+```
 
-   ```bash
-   npx expo login
-   npm start
-   ```
+## Ejecutar en plataformas
 
-3. En el iPhone, abre Expo Go, toca el ícono de cuenta (arriba a la derecha) e inicia sesión **con la misma cuenta**. Expo Go lo exige en iPhones físicos.
-4. Conecta el iPhone a la misma Wi-Fi del computador y escanea con la app **Cámara** el QR de la terminal. Si pregunta por la red local, permite el acceso.
+```powershell
+npm start          # Expo Developer Tools
+npm run web        # Navegador
+```
 
-**Sin instalar nada:** abre en Safari `http://IP_DEL_COMPUTADOR:8081` mientras corre `npm run web`. Sirve para ver todas las pantallas, pero no el escáner con cámara (Safari solo la permite en `https`) ni el bloqueo de capturas.
+### iPhone con Expo Go
 
-## Cuentas de prueba
+1. Instala Expo Go desde la App Store e inicia sesión en Expo.
+2. Ejecuta `npx expo login` y `npm start` en el computador.
+3. Conecta el iPhone a la misma Wi-Fi.
+4. Escanea el QR de Expo con la cámara de iOS.
+5. Permite el acceso a la red local si iOS lo solicita.
 
-La contraseña de ambas cuentas de acceso demo es `Konrad123`. Los botones Estudiante y Docente consultan/preparan las cuentas y reuniones en Firestore antes de rellenar el formulario. Los otros tres estudiantes de la plantilla CSV son asistentes demo, no cuentas de acceso.
+La cuenta de Expo debe coincidir con la sesión iniciada en Expo Go.
+
+En Safari también puede abrirse `http://IP_DEL_COMPUTADOR:8081`, pero el navegador no habilita el escáner nativo ni el bloqueo de capturas de la aplicación.
+
+## Cuentas demo
+
+La contraseña predeterminada es `Konrad123`. Los botones **Estudiante** y **Docente** preparan los datos necesarios antes de iniciar sesión.
 
 | Rol | Correo |
 | --- | --- |
 | Estudiante | `david.gomez@konradlorenz.edu.co` |
 | Docente | `armando.casas@konradlorenz.edu.co` |
 
-## Cómo probar el flujo
+Los datos demo usan IDs y nombres deterministas. Al repetir la inicialización no se duplican reuniones o inscripciones y no se eliminan asistencias existentes.
 
-**En un solo iPhone:** entra como docente, ve a **Escanear QR** y despliega **Modo demostración**. «Ticket» envía un código vigente y «Captura» uno vencido, que se rechaza. Al cerrar sesión y entrar como ese estudiante, ya aparece registrado.
+## Prueba rápida
 
-**Con dos dispositivos:** uno muestra el ticket como estudiante y el otro lo escanea como docente. Ambos deben alcanzar el backend iniciado en el computador; el registro queda persistido en Firestore y se refleja al actualizar las pantallas.
+### Dos dispositivos
 
-**En un mismo navegador:** abre dos pestañas, una como estudiante y otra como docente. Comparten los datos, así que el ticket cambia solo a «¡Asistencia registrada!».
+1. Inicia el backend y la app en dos dispositivos.
+2. Abre sesión como estudiante y entra a **Mi QR**.
+3. Abre sesión como personal y entra a **Escanear QR**.
+4. Escanea el código vigente.
+5. Consulta el reporte o el historial para verificar el registro.
 
-### Datos de prueba
+### Un iPhone
 
-- Se crean alrededor de la hora actual para que siempre haya una clase en curso.
-- Los botones de cuenta demo vuelven a asegurar las mismas reuniones sin duplicar registros ni borrar asistencias.
-- La recuperación por correo está implementada; el cambio de contraseña desde una sesión activa y el reinicio remoto de datos demo siguen pendientes.
+1. Inicia sesión como docente.
+2. Abre **Escanear QR** y activa el modo demostración.
+3. Usa **Ticket** para enviar un código vigente o **Captura** para enviar uno vencido.
+4. Cierra sesión y entra como estudiante para revisar el resultado.
+
+### Dos pestañas del navegador
+
+Es posible iniciar sesiones de estudiante y personal en pestañas separadas. El escáner web reconoce el ticket, aunque no ofrece todas las protecciones disponibles en Expo Go o una instalación nativa.
 
 ## Cómo funciona el ticket
 
-1. Cada estudiante tiene un secreto por reunión. El ticket se activa 15 minutos antes de la clase y deja de estar disponible una vez usado.
-2. La app firma un código nuevo cada 5 segundos: `KC1.<ticket>.<paso>.<HMAC-SHA256>`.
-3. El escáner comprueba la firma, la reunión, la vigencia (máximo 10 s), el horario y que no se haya usado.
-4. En los primeros 15 minutos queda **Presente** y después **Tardanza**. Quien no se registra queda **Pendiente** y pasa a **Ausente** al terminar la reunión.
+1. Se crea una inscripción por estudiante y reunión.
+2. El ticket se habilita 15 minutos antes del inicio y permanece asociado a la reunión.
+3. La app genera un código cada 5 segundos:
 
-Las validaciones y el registro de asistencia se realizan en el backend. Esta versión está pensada para demostraciones académicas locales, no para producción.
+   ```text
+   KC1.<ticket>.<paso>.<HMAC-SHA256>
+   ```
 
-### Protección contra capturas
+4. El backend valida firma, reunión, vigencia máxima de 10 segundos, horario y uso previo.
+5. Los primeros 15 minutos de la reunión registran **Presente** y luego **Tardanza**.
+6. Al terminar el evento, quien no se registró pasa de **Pendiente** a **Ausente**.
 
-| Medida | App (Expo Go o nativa) | Navegador |
+## Protección contra capturas
+
+| Medida | App móvil | Navegador |
 | --- | --- | --- |
-| El código vence en máximo 10 s | Sí | Sí |
-| Bloqueo de capturas y grabación del sistema | Sí (`expo-screen-capture`) | **No es posible** |
-| Código oculto al salir de la app o perder el foco | Sí | Sí |
-| Código oculto con atajos de captura e impresión | No aplica | Sí, como disuasión |
-| Franja animada y reloj para reconocer una imagen estática | Sí | Sí |
+| Código con vigencia máxima de 10 s | Sí | Sí |
+| Bloqueo de capturas y grabación del sistema | Sí, con `expo-screen-capture` | No disponible |
+| Código oculto al salir o perder el foco | Sí | Sí |
+| Ocultamiento ante atajos de captura e impresión | No aplica | Sí, como disuasión |
+| Franja animada y reloj para detectar imágenes estáticas | Sí | Sí |
 
-## Backend y datos demo
+Estas medidas reducen el riesgo de reutilización visual, pero no reemplazan controles de identidad o antifraude propios de una implementación de producción.
 
-El backend y los pasos de instalación están en [KonradCheckBackend/README.md](KonradCheckBackend/README.md). La app solo necesita una URL en `KonradCheckApp/.env` (`EXPO_PUBLIC_API_URL`); en web/emulador local puede ser `http://localhost:8080`, y en un teléfono físico debe usarse la IP del computador en la red local.
-
-La inicialización demo usa IDs estables, prepara las cuatro personas de la plantilla CSV y una cuenta de acceso por rol. Repetirla no duplica reuniones ni inscripciones y conserva asistencias registradas. La recuperación de contraseña envía un código de un solo uso por correo; el reinicio remoto de datos demo y el cambio de contraseña desde una sesión activa siguen pendientes.
-
-## Tecnologías
-
-JavaScript, React Native, Expo SDK 58, Kotlin, Ktor, Firebase Admin SDK, Cloud Firestore, React Navigation, `expo-camera`, `expo-screen-capture` y `expo-secure-store`.
-
-## Estructura del proyecto
+## Datos y estructura del proyecto
 
 ```text
 .
 ├── KonradCheckApp/
-│   ├── App.js                # Navegación según el rol de la sesión
-│   ├── context/              # Sesión del usuario
-│   ├── hooks/                # Datos en vivo y protección de capturas
-│   ├── services/             # API del backend, generación del QR, CSV y fechas
+│   ├── App.js
+│   ├── context/             # Sesión y usuario autenticado
+│   ├── hooks/               # Datos en vivo y protección de capturas
+│   ├── services/            # API, QR, CSV, fechas y almacenamiento
 │   ├── screens/
-│   │   ├── components/       # Íconos, barra inferior y etiquetas de estado
-│   │   ├── noSesion/         # Inicio y recuperación de contraseña
-│   │   └── conSesion/        # Estudiante, personal y perfil
-│   └── docs/                 # Plantilla CSV de asistentes
-└── KonradCheckBackend/       # API Kotlin/Ktor y persistencia Firestore
+│   │   ├── noSesion/        # Login y recuperación
+│   │   ├── conSesion/       # Estudiante, personal y perfil
+│   │   └── components/      # Navegación e indicadores
+│   └── docs/                # Plantilla CSV de asistentes
+└── KonradCheckBackend/
+    ├── src/main/kotlin/com/konradcheck/
+    │   ├── routes/          # Endpoints REST
+    │   ├── data/            # Acceso y reglas de Firestore
+    │   ├── services/        # Entrega de correo
+    │   ├── security/        # Hash de contraseñas
+    │   └── domain/          # Reglas de asistencia
+    └── src/test/            # Pruebas unitarias
 ```
+
+## Pruebas
+
+Ejecuta las pruebas del backend desde `KonradCheckBackend`:
+
+```powershell
+.\gradlew.bat test
+```
+
+Las pruebas actuales cubren las reglas de asistencia y el hash y migración de contraseñas.
 
 ## Problemas comunes
 
-- **Expo Go dice que hay que iniciar sesión o que las cuentas no coinciden:** revisa la cuenta con `npx expo whoami`, usa la misma en Expo Go y toca **Try Again**.
-- **Expo Go dice que el proyecto no es compatible:** Expo Go solo abre la SDK más reciente. Actualiza Expo Go y el proyecto con `npx expo install expo@latest --fix`.
-- **El iPhone no conecta:** verifica que esté en la misma Wi-Fi y que tenga activado el permiso de **Red local** para Expo Go en Ajustes.
-- **El escáner web no lee ningún código:** el lector se descarga de internet la primera vez, así que el computador necesita conexión.
+- **Expo Go solicita iniciar sesión:** ejecuta `npx expo whoami` y usa la misma cuenta en Expo Go.
+- **El proyecto no es compatible:** actualiza Expo Go y ejecuta `npx expo install expo@latest --fix`.
+- **El iPhone no conecta:** confirma que el teléfono y el computador estén en la misma Wi-Fi y permite **Red local**.
+- **El backend no inicia:** verifica JDK 21 y que `serviceAccountKey.json` exista en `KonradCheckBackend` o se configure `FIREBASE_SERVICE_ACCOUNT_PATH`.
+- **El dispositivo físico no alcanza la API:** reemplaza `localhost` por la IPv4 del computador y permite el puerto 8080 en el firewall.
+- **El escáner web no lee:** permite acceso a la cámara y usa el navegador compatible; el modelo de cámara del dispositivo suele necesitar HTTPS o `localhost`.
+
+## Limitaciones conocidas
+
+- La pantalla de cambio de contraseña visible desde una sesión activa todavía no realiza la operación.
+- El reinicio remoto de datos demo no está disponible.
+- La configuración actual está orientada a pruebas locales y académicas, no a despliegue de producción.
+- Los datos y secretos locales deben gestionarse fuera del repositorio.
 
 ## Licencia
 
-Consulta el archivo [LICENSE](KonradCheckApp/LICENSE) para conocer los términos de uso del proyecto.
+Consulta [KonradCheckApp/LICENSE](KonradCheckApp/LICENSE) para conocer los términos de uso.
